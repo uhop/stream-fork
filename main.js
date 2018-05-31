@@ -4,10 +4,11 @@ const {Writable} = require('stream');
 
 const waitForMethod = (name, chunk, encoding) => output =>
   new Promise(resolve => {
+    let error = null;
     try {
-      output[name](chunk, encoding, e => resolve(e));
+      output[name](chunk, encoding, e => resolve(e || error));
     } catch (e) {
-      // suppress
+      error = e;
     }
   });
 
