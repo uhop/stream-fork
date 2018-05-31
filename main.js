@@ -2,15 +2,21 @@
 
 const {Writable} = require('stream');
 
-const waitForMethod = (name, chunk, encoding) => output =>
-  new Promise(resolve => {
-    let error = null;
-    try {
-      output[name](chunk, encoding, e => resolve(e || error));
-    } catch (e) {
-      error = e;
-    }
-  });
+const waitForMethod = (name, chunk, encoding) => (output, index, array) =>
+  output
+    ? new Promise(resolve => {
+        let error = null;
+        try {
+          output[name](chunk, encoding, e => {
+            e = e || error;
+            if (e) array[index] = null;
+            resolve(e);
+          });
+        } catch (e) {
+          error = e;
+        }
+      })
+    : Promise.resolve(null);
 
 const callCallback = callback => results => {
   const ok = results.every(error => {
