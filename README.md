@@ -15,6 +15,7 @@ Originally `stream-fork` was used internally with [stream-chain](https://www.npm
 
 ```js
 const Fork = require('stream-fork');
+const fs = require('fs');
 const zlib = require('zlib');
 
 const gzip = zlib.createGzip();
@@ -30,14 +31,14 @@ dataSource.pipe(forkStream);
 ## Installation
 
 ```
-npm i stream-fork
+npm i --save stream-fork
 ```
 
 ## Documentation
 
 `Fork`, which is returned by `require('stream-fork')`, is a specialized Writable stream. It propagates every piece of data downstream to its dependent Writable streams (including [Transform](https://nodejs.org/api/stream.html#stream_class_stream_transform) and [Duplex](https://nodejs.org/api/stream.html#stream_class_stream_duplex) streams).
 
-Many details about this package can be discovered by looking at test files located in `tests/`, and by looking at the source code in `main.js`.
+Many details about this package can be discovered by looking at test files located in `tests/` and in the source code (`main.js`).
 
 ### Constructor: `new Fork(outputs[, options])`
 
@@ -83,6 +84,7 @@ dataSource.pipe(fork([gzip, process.stdout], {}));
 
 ## Release History
 
+- 1.0.1 *Improved documentation.*
 - 1.0.0 *The initial release.*
 
 [npm-image]:      https://img.shields.io/npm/v/stream-fork.svg
