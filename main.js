@@ -18,30 +18,46 @@ const waitForMethod = (name, chunk, encoding) => (output, index, array) =>
       })
     : Promise.resolve(null);
 
-const callCallback = callback => results => {
-  const ok = results.every(error => {
-    if (error) {
-      callback(error);
-      return false;
+function reportErrors(callback) {
+  return results => {
+    const ok = results.every(error => {
+      if (error) {
+        callback(error);
+        return false;
+      }
+      return true;
+    });
+    if (ok) {
+      callback(null);
+    } else {
+      this.outputs = this.outputs.filter(output => output);
     }
-    return true;
-  });
-  ok && callback(null);
-};
+  };
+}
 
-const ignoreErrors = callback => () => callback(null);
+function ignoreErrors(callback) {
+  return () => {
+    if (this.outputs.some(output => !output)) {
+      this.outputs = this.outputs.filter(output => output);
+    }
+    callback(null);
+  }
+}
 
 class Fork extends Writable {
   constructor(outputs, options = {objectMode: true}) {
     super(options);
     this.outputs = outputs;
-    this.processResults = options && options.ignoreErrors ? ignoreErrors : callCallback;
+    this.processResults = options && options.ignoreErrors ? ignoreErrors : reportErrors;
   }
   _write(chunk, encoding, callback) {
     Promise.all(this.outputs.map(waitForMethod('write', chunk, encoding))).then(this.processResults(callback));
   }
   _final(callback) {
     Promise.all(this.outputs.map(waitForMethod('end', null, null))).then(this.processResults(callback));
+  }
+  isEmpty() {
+    return !this.outputs.length;
   }
   static fork(outputs, options = {objectMode: true}) {
     return new Fork(outputs, options);
