@@ -7,6 +7,8 @@
 
 `stream-fork` is a [Writable stream](https://nodejs.org/api/stream.html#stream_writable_streams), which writes into dependent Writable streams properly handling [backpressure](https://nodejs.org/en/docs/guides/backpressuring-in-streams/). It is a way to make forks in a linear pipeline of streams.
 
+Originally `stream-fork` was used internally with [stream-chain](https://www.npmjs.com/package/stream-chain) and [stream-json](https://www.npmjs.com/package/stream-json) to create flexible data processing pipelines.
+
 `stream-fork` is a lightweight, no-dependencies micro-package. It is distributed under New BSD license.
 
 ## Intro
@@ -24,8 +26,6 @@ dataSource.pipe(forkStream);
 
 // now we have data on our screen and as a compressed log file
 ```
-
-Originally `stream-fork` was used internally with [stream-chain](https://www.npmjs.com/package/stream-chain) and [stream-json](https://www.npmjs.com/package/stream-json) to create flexible data-processing pipelines.
 
 ## Installation
 
