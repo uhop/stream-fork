@@ -1,6 +1,6 @@
 {
   "name": "stream-fork",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Fork a writable stream into several parallel writable streams.",
   "main": "main.js",
   "scripts": {

@@ -30,13 +30,14 @@ dataSource.pipe(forkStream);
 
 ## Installation
 
-```
+```bash
 npm i --save stream-fork
+# or: yarn add stream-fork
 ```
 
 ## Documentation
 
-`Fork`, which is returned by `require('stream-fork')`, is a specialized Writable stream. It propagates every piece of data downstream to its dependent Writable streams (including [Transform](https://nodejs.org/api/stream.html#stream_class_stream_transform) and [Duplex](https://nodejs.org/api/stream.html#stream_class_stream_duplex) streams).
+`Fork`, which is returned by `require('stream-fork')`, is a specialized [Writable](https://nodejs.org/api/stream.html#stream_class_stream_writable) stream. It propagates every piece of data downstream to its dependent Writable streams (including [Transform](https://nodejs.org/api/stream.html#stream_class_stream_transform) and [Duplex](https://nodejs.org/api/stream.html#stream_class_stream_duplex) streams).
 
 Many details about this package can be discovered by looking at test files located in `tests/` and in the source code (`main.js`).
 
@@ -84,6 +85,7 @@ dataSource.pipe(fork([gzip, process.stdout], {}));
 
 ## Release History
 
+- 1.0.2 *Workaround for Node 6: use `'finish'` event instead of `_final()`.*
 - 1.0.1 *Improved documentation.*
 - 1.0.0 *The initial release.*
 
