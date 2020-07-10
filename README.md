@@ -1,9 +1,7 @@
-# stream-fork
+# stream-fork [![NPM version][npm-img]][npm-url]
 
-[![Build status][travis-image]][travis-url]
-[![Dependencies][deps-image]][deps-url]
-[![devDependencies][dev-deps-image]][dev-deps-url]
-[![NPM version][npm-image]][npm-url]
+[npm-img]: https://img.shields.io/npm/v/stream-fork.svg
+[npm-url]: https://npmjs.org/package/stream-fork
 
 `stream-fork` is a [Writable stream](https://nodejs.org/api/stream.html#stream_writable_streams), which writes into dependent Writable streams properly handling [backpressure](https://nodejs.org/en/docs/guides/backpressuring-in-streams/). It is a way to make forks in a linear pipeline of streams.
 
@@ -88,12 +86,3 @@ dataSource.pipe(fork([gzip, process.stdout], {}));
 - 1.0.2 *Workaround for Node 6: use `'finish'` event instead of `_final()`.*
 - 1.0.1 *Improved documentation.*
 - 1.0.0 *The initial release.*
-
-[npm-image]:      https://img.shields.io/npm/v/stream-fork.svg
-[npm-url]:        https://npmjs.org/package/stream-fork
-[deps-image]:     https://img.shields.io/david/uhop/stream-fork.svg
-[deps-url]:       https://david-dm.org/uhop/stream-fork
-[dev-deps-image]: https://img.shields.io/david/dev/uhop/stream-fork.svg
-[dev-deps-url]:   https://david-dm.org/uhop/stream-fork?type=dev
-[travis-image]:   https://img.shields.io/travis/uhop/stream-fork.svg
-[travis-url]:     https://travis-ci.org/uhop/stream-fork
