@@ -19,7 +19,7 @@ unit.add(module, [
         new Writable({
           objectMode: true,
           write(chunk, encoding, callback) {
-            callback(new Error('Sudden error!'));
+            callback(Error('Sudden error!'));
           }
         })
       ]);
@@ -41,9 +41,6 @@ unit.add(module, [
     fork.on('finish', () => {
       t.test(false); // shouldn't be here
     });
-    fork.on('close', () => {
-      t.test(false); // shouldn't be here
-    });
   },
   function test_errorsIgnore(t) {
     const async = t.startAsync('test_errorsIgnore');
@@ -56,7 +53,7 @@ unit.add(module, [
         new Writable({
           objectMode: true,
           write(chunk, encoding, callback) {
-            callback(new Error('Sudden error!'));
+            callback(Error('Sudden error!'));
           }
         })
       ], {objectMode: true, ignoreErrors: true});
@@ -69,9 +66,6 @@ unit.add(module, [
     fork.on('finish', () => {
       eval(t.TEST('t.unify(output1, input)'));
       async.done();
-    });
-    fork.on('close', () => {
-      t.test(false); // shouldn't be here
     });
   }
 ]);
