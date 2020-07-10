@@ -2,12 +2,12 @@
 
 const {Writable} = require('stream');
 
-const waitForMethod = (name, chunk, encoding) => (output, index, array) =>
+const waitForWrite = (chunk, encoding) => (output, index, array) =>
   output
     ? new Promise(resolve => {
         let error = null;
         try {
-          output[name](chunk, encoding, e => {
+          output.write(chunk, encoding, e => {
             e = e || error;
             if (e) array[index] = null;
             resolve(e);
@@ -16,7 +16,23 @@ const waitForMethod = (name, chunk, encoding) => (output, index, array) =>
           error = e;
         }
       })
-    : Promise.resolve(null);
+    : Promise.resolved(null);
+
+const waitForEnd = (output, index, array) =>
+  output
+    ? new Promise(resolve => {
+        let error = null;
+        try {
+          output.end(e => {
+            e = e || error;
+            if (e) array[index] = null;
+            resolve(e);
+          });
+        } catch (e) {
+          error = e;
+        }
+      })
+    : Promise.resolved(null);
 
 function reportErrors(callback) {
   return results => {
@@ -49,14 +65,16 @@ class Fork extends Writable {
     super(options);
     this.outputs = outputs;
     this.processResults = options && options.ignoreErrors ? ignoreErrors : reportErrors;
-    this.on('finish', () => this.outputs.forEach(output => output.end(null, null))); // for Node 6
+
+    // add error handlers to avoid the default ones
+    this.outputs.forEach(stream => stream.on('error', () => {}));
   }
   _write(chunk, encoding, callback) {
-    Promise.all(this.outputs.map(waitForMethod('write', chunk, encoding))).then(this.processResults(callback));
+    Promise.all(this.outputs.map(waitForWrite(chunk, encoding))).then(this.processResults(callback));
   }
-  // _final(callback) { // unavailable in Node 6
-  //   Promise.all(this.outputs.map(waitForMethod('end', null, null))).then(this.processResults(callback));
-  // }
+  _final(callback) {
+    Promise.all(this.outputs.map(waitForEnd)).then(this.processResults(callback));
+  }
   isEmpty() {
     return !this.outputs.length;
   }
