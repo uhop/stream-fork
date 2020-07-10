@@ -83,6 +83,7 @@ dataSource.pipe(fork([gzip, process.stdout], {}));
 
 ## Release History
 
-- 1.0.2 *Workaround for Node 6: use `'finish'` event instead of `_final()`.*
-- 1.0.1 *Improved documentation.*
-- 1.0.0 *The initial release.*
+- 1.0.3 *technical release to support Node 14.*
+- 1.0.2 *workaround for Node 6: use `'finish'` event instead of `_final()`.*
+- 1.0.1 *improved documentation.*
+- 1.0.0 *the initial release.*

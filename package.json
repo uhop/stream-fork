@@ -1,6 +1,6 @@
 {
   "name": "stream-fork",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Fork a writable stream into several parallel writable streams.",
   "main": "main.js",
   "scripts": {
@@ -22,5 +22,9 @@
   "homepage": "https://github.com/uhop/stream-fork#readme",
   "devDependencies": {
     "heya-unit": "^0.3.0"
-  }
+  },
+  "files": [
+    "/*.js",
+    "/utils"
+  ]
 }
