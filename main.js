@@ -66,8 +66,10 @@ class Fork extends Writable {
     this.outputs = outputs;
     this.processResults = options && options.ignoreErrors ? ignoreErrors : reportErrors;
 
-    // add error handlers to avoid the default ones
-    this.outputs.forEach(stream => stream.on('error', () => {}));
+    // connect events
+    if (!options || !options.skipEvents) {
+      this.outputs.forEach(stream => stream.on('error', error => this.emit('error', error)));
+    }
   }
   _write(chunk, encoding, callback) {
     Promise.all(this.outputs.map(waitForWrite(chunk, encoding))).then(this.processResults(callback));
