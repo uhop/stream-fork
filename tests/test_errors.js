@@ -29,17 +29,20 @@ unit.add(module, [
 
     inp.on('error', error => {
       eval(t.TEST('error.message === "Sudden error!"'));
+      // async.done();
     });
     inp.on('end', () => {
       eval(t.TEST('!t.unify(output1, input)'));
-      async.done();
+      // async.done();
     });
 
     fork.on('error', error => {
       eval(t.TEST('error.message === "Sudden error!"'));
+      async.done();
     });
     fork.on('finish', () => {
       t.test(false); // shouldn't be here
+      // async.done();
     });
   },
   function test_errorsIgnore(t) {
