@@ -83,6 +83,7 @@ dataSource.pipe(fork([gzip, process.stdout], {}));
 
 ## Release History
 
+- 1.0.4 *bugfix: forward errors correctly, thx [dbubovych](https://github.com/dbubovych).*
 - 1.0.3 *technical release to support Node 14.*
 - 1.0.2 *workaround for Node 6: use `'finish'` event instead of `_final()`.*
 - 1.0.1 *improved documentation.*
