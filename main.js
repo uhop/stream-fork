@@ -66,18 +66,24 @@ class Fork extends Writable {
     this.outputs = outputs;
     this.processResults = options && options.ignoreErrors ? ignoreErrors : reportErrors;
 
+    // add error handlers to avoid the default ones
+    this.outputs.forEach(stream => stream.on('error', () => {}));
+
     // connect events
     if (!options || !options.ignoreErrors) {
-      this.outputs.forEach(stream => stream.on('error', error => this.emit('error', error)));
-    } else {
-      // add error handlers to avoid the default ones
-      this.outputs.forEach(stream => stream.on('error', () => {}));
+      this.outputs.forEach(stream => stream.on('error', error => {
+        this.outputs = this.outputs.filter(s => s !== stream);
+        if (this.startedWriting) return;
+        this.emit('error', error);
+      }));
     }
   }
   _write(chunk, encoding, callback) {
+    this.startedWriting = true;
     Promise.all(this.outputs.map(waitForWrite(chunk, encoding))).then(this.processResults(callback));
   }
   _final(callback) {
+    this.startedWriting = true;
     Promise.all(this.outputs.map(waitForEnd)).then(this.processResults(callback));
   }
   isEmpty() {
