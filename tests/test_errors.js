@@ -62,6 +62,7 @@ unit.add(module, [
 
     fork.on('error', error => {
       t.test(false); // shouldn't be here
+      async.done();
     });
     fork.on('finish', () => {
       eval(t.TEST('t.unify(output1, input)'));
