@@ -50,6 +50,34 @@ test.asPromise('route: out-of-range index drops the chunk', (t, resolve) => {
   });
 });
 
+test.asPromise('route: NaN index drops the chunk', (t, resolve) => {
+  const input = [1, 2, 3];
+  const output = [];
+  const r = route([streamToArray(output)], {pick: () => NaN});
+
+  streamFromArray(input).pipe(r);
+
+  r.on('finish', () => {
+    t.deepEqual(output, []);
+    resolve();
+  });
+});
+
+test.asPromise('route: non-integer index drops the chunk', (t, resolve) => {
+  const input = [1, 2, 3];
+  const output1 = [];
+  const output2 = [];
+  const r = route([streamToArray(output1), streamToArray(output2)], {pick: () => 1.5});
+
+  streamFromArray(input).pipe(r);
+
+  r.on('finish', () => {
+    t.deepEqual(output1, []);
+    t.deepEqual(output2, []);
+    resolve();
+  });
+});
+
 test('route: throws when outputs is empty', t => {
   t.throws(() => route([], {pick: () => 0}), TypeError);
 });

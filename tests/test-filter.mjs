@@ -77,3 +77,12 @@ test('filter: throws when a predicate is not a function', t => {
     TypeError
   );
 });
+
+test('filter: throws when outputs is empty', t => {
+  t.throws(() => filter([], {predicates: []}), TypeError);
+});
+
+test('filter: throws when options is missing', t => {
+  t.throws(() => filter([streamToArray([])]), TypeError);
+  t.throws(() => filter([streamToArray([])], {}), TypeError);
+});

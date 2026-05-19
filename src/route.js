@@ -26,7 +26,7 @@ const route = (outputs, options) => {
     write(chunk, encoding, cb) {
       startedWriting = true;
       const idx = pick(chunk, encoding);
-      if (typeof idx != 'number' || idx < 0 || idx >= pushers.length || pushers[idx].isDead()) {
+      if (!Number.isInteger(idx) || idx < 0 || idx >= pushers.length || pushers[idx].isDead()) {
         cb(null);
         return;
       }
