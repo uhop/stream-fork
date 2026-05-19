@@ -1,0 +1,56 @@
+<!-- Canonical source: AGENTS.md — keep this file in sync -->
+# stream-fork — AI Agent Rules
+
+## Project identity
+
+`stream-fork` is a 1→N stream combinator: a Writable that duplicates every chunk to multiple downstream Writables while propagating backpressure from the slowest downstream. The npm package name is `stream-fork`. It is part of the `stream-chain` / `stream-json` family.
+
+## Critical rules
+
+- **CommonJS.** The project is `"type": "commonjs"`. Use `require()` in source, `import` in tests (`.mjs`).
+- **No transpilation.** Code runs directly.
+- **Zero runtime dependencies.** `dependencies: {}` is a hard rule.
+- **Backpressure is the whole point.** `_write` only signals "ready for the next chunk" once every downstream has called back. Do not short-circuit that gate.
+- **Object mode default.** The default options literal is `{objectMode: true}`.
+- **Do not modify or delete test expectations** without understanding why they changed.
+- **Do not add comments or remove comments** unless explicitly asked.
+- **Keep `src/index.js` and `src/index.d.ts` in sync.**
+
+## Code style
+
+- Prettier: 100 char width, single quotes, no bracket spacing, no trailing commas, arrow parens "avoid" (see `.prettierrc`).
+- 2-space indentation.
+- Semicolons are enforced by Prettier (default `semi: true`).
+- Lambda-style functions except for generators (`function*`) and the rare `this`-dependent case (`reportErrors`, `ignoreErrors`).
+
+## Architecture quick reference
+
+- `Fork` is the only public class. Constructor: `new Fork(outputs, options)`. Factory: `Fork.fork(outputs, options)`.
+- `_write(chunk, encoding, callback)` runs `Promise.all` over `output.write(chunk, encoding, cb)` for each downstream; the slowest gates the upstream.
+- `_final(callback)` does the same with `output.end(cb)`.
+- Per-stream errors: in default mode the first error is re-emitted on the Fork and the failing stream is filtered from `outputs`. With `ignoreErrors: true`, errors are swallowed and the failing stream is still filtered.
+- `isEmpty()` reports whether the outputs array has been drained to zero.
+
+## Verification commands
+
+- `npm test` — run the full test suite (parallel workers)
+- `node tests/test-<name>.mjs` — run a single test file directly
+- `npm run test:bun` — run with Bun
+- `npm run test:deno` — run with Deno
+- `npm run ts-check` — TypeScript type checking
+- `npm run js-check` — `tsc --allowJs --checkJs` over the JS sources
+- `npm run lint` — Prettier check
+- `npm run lint:fix` — Prettier write
+
+## File layout
+
+- Entry point: `src/index.js` + `src/index.d.ts`
+- Tests: `tests/test-*.mjs`, `tests/helpers.mjs`
+- Wiki docs: `wiki/` (git submodule)
+
+## When reading the codebase
+
+- Start with `ARCHITECTURE.md` for the module map.
+- `src/index.d.ts` is the canonical API reference.
+- The `tests/` files demonstrate every supported usage pattern.
+- Wiki markdown files in `wiki/` contain detailed usage docs.

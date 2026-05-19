@@ -1,8 +1,8 @@
 'use strict';
 
-const {Readable, Writable} = require('stream');
+import {Readable, Writable} from 'node:stream';
 
-const streamFromArray = (array, objectMode = true) =>
+export const streamFromArray = (array, objectMode = true) =>
   new Readable({
     objectMode,
     read() {
@@ -16,13 +16,11 @@ const streamFromArray = (array, objectMode = true) =>
     }
   });
 
-const streamToArray = (array, objectMode = true) =>
+export const streamToArray = (array, objectMode = true) =>
   new Writable({
     objectMode,
-    write(chunk, encoding, callback) {
+    write(chunk, _, callback) {
       array.push(chunk);
       callback(null);
     }
   });
-
-module.exports = {streamFromArray, streamToArray};

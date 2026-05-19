@@ -3,18 +3,24 @@
 [npm-img]: https://img.shields.io/npm/v/stream-fork.svg
 [npm-url]: https://npmjs.org/package/stream-fork
 
-`stream-fork` is a [Writable stream](https://nodejs.org/api/stream.html#stream_writable_streams), which writes into dependent Writable streams properly handling [backpressure](https://nodejs.org/en/docs/guides/backpressuring-in-streams/). It is a way to make forks in a linear pipeline of streams.
+> A 1→N stream combinator — a Writable that duplicates every chunk to multiple downstream Writables, propagating backpressure from the slowest downstream. Part of the `stream-chain` / `stream-json` family. Zero runtime dependencies.
 
-Originally `stream-fork` was used internally with [stream-chain](https://www.npmjs.com/package/stream-chain) and [stream-json](https://www.npmjs.com/package/stream-json) to create flexible data processing pipelines.
+The whole point is correct backpressure: `Fork._write` only signals "ready for the next chunk" once every downstream has called back, so the slowest fork gates the upstream pipe. Without that, a slow downstream's buffer would grow unboundedly.
 
-`stream-fork` is a lightweight, no-dependencies micro-package. It is distributed under New BSD license.
+## Installation
 
-## Intro
+```bash
+npm i stream-fork
+```
+
+Node 22+ required.
+
+## Usage
 
 ```js
 const Fork = require('stream-fork');
-const fs = require('fs');
-const zlib = require('zlib');
+const fs = require('node:fs');
+const zlib = require('node:zlib');
 
 const gzip = zlib.createGzip();
 gzip.pipe(fs.createWriteStream('log.txt.gz'));
@@ -26,66 +32,46 @@ dataSource.pipe(forkStream);
 // now we have data on our screen and as a compressed log file
 ```
 
-## Installation
+## API
 
-```bash
-npm i --save stream-fork
-# or: yarn add stream-fork
-```
-
-## Documentation
-
-`Fork`, which is returned by `require('stream-fork')`, is a specialized [Writable](https://nodejs.org/api/stream.html#stream_class_stream_writable) stream. It propagates every piece of data downstream to its dependent Writable streams (including [Transform](https://nodejs.org/api/stream.html#stream_class_stream_transform) and [Duplex](https://nodejs.org/api/stream.html#stream_class_stream_duplex) streams).
-
-Many details about this package can be discovered by looking at test files located in `tests/` and in the source code (`main.js`).
+`Fork` is a specialized [Writable](https://nodejs.org/api/stream.html#stream_class_stream_writable) stream. It propagates every chunk to its dependent Writable streams (including [Transform](https://nodejs.org/api/stream.html#stream_class_stream_transform) and [Duplex](https://nodejs.org/api/stream.html#stream_class_stream_duplex) streams).
 
 ### Constructor: `new Fork(outputs[, options])`
 
-The constructor accepts following arguments:
-
-* `outputs` is an array of Writable streams, which will be used duplicate written chunks or items.
-* `options` is an options object, which is used to create a Writable stream. Read all about it in [Implementing a Writable stream](https://nodejs.org/api/stream.html#stream_implementing_a_writable_stream). If it is not specified or falsy, `{objectMode: true}` is assumed. This default is useful for creating object mode streams.
-  * Additionally following custom options are recognized:
-    * `ignoreErrors` is a flag. When its value is truthy, a `Fork` instance never fails on `write()` silently ignoring downstream errors. Otherwise, the first encountered downstream error is reported upstream as its own error. The default: `false`.
+- `outputs` — array of downstream Writables.
+- `options` — passed through to the `Writable` super-constructor. Default: `{objectMode: true}`. Opt out by passing an empty `{}` for chunk mode.
+  - `options.ignoreErrors` — when truthy, downstream errors are silently dropped and the failing stream is removed from `outputs`. When falsy (default), the first downstream error is re-emitted on the `Fork`.
 
 ```js
-const forkObj = new Fork(streams);     // object mode
-const forkChk = new Fork(streams, {}); // chunk mode (text or buffers)
+const forkObj = new Fork(streams); // object mode (default)
+const forkChk = new Fork(streams, {}); // chunk mode (Buffer/string)
 ```
 
-### Property: `outputs`
+### Static method: `Fork.fork(outputs[, options])`
 
-It is an array of Writable streams supplied in the constructor above. If a stream fails on writing a chunk, eventually it will be removed from the array.
-
-```js
-const forkStream = new Fork(streams);
-forkStream.outputs.length === streams.length; // true
-```
-
-### Method: `isEmpty()`
-
-It returns `true` if `outputs` property is empty, and `false` otherwise. If `isEmpty()` is `true`, it means that the stream do not duplicate data.
+Factory equivalent to `new Fork(...)`.
 
 ```js
-const forkStream = new Fork([]);
-forkStream.isEmpty(); // true
-```
-
-### Static method: `fork(outputs[, options])`
-
-It is a factory function, which accepts the same arguments as the constructor, and returns a fully constructed `Fork` object.
-
-```js
-// replicating the introduction example above
 const {fork} = require('stream-fork');
 dataSource.pipe(fork([gzip, process.stdout], {}));
 ```
 
+### Property: `fork.outputs`
+
+The array of downstream Writables. Mutated in place when a downstream errors out (the failing stream is filtered out).
+
+### Method: `fork.isEmpty()`
+
+Returns `true` if `outputs.length === 0`.
+
+For detailed usage docs see the [wiki](https://github.com/uhop/stream-fork/wiki).
+
 ## Release History
 
-- 1.0.5 *technical release.*
-- 1.0.4 *bugfix: forward errors correctly, thx [dbubovych](https://github.com/dbubovych).*
-- 1.0.3 *technical release to support Node 14.*
-- 1.0.2 *workaround for Node 6: use `'finish'` event instead of `_final()`.*
-- 1.0.1 *improved documentation.*
-- 1.0.0 *the initial release.*
+- 2.0.0 _fleet-conventions refresh: repackaged under `src/`, Node 22+, `tape-six` test runner. Algorithm unchanged._
+- 1.0.5 _technical release._
+- 1.0.4 _bugfix: forward errors correctly, thx [dbubovych](https://github.com/dbubovych)._
+- 1.0.3 _technical release to support Node 14._
+- 1.0.2 _workaround for Node 6: use `'finish'` event instead of `_final()`._
+- 1.0.1 _improved documentation._
+- 1.0.0 _the initial release._

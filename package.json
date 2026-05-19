@@ -1,10 +1,25 @@
 {
   "name": "stream-fork",
-  "version": "1.0.5",
-  "description": "Fork a writable stream into several parallel writable streams.",
-  "main": "main.js",
+  "version": "2.0.0",
+  "description": "Fork a writable stream into several parallel writable streams with proper backpressure handling.",
+  "type": "commonjs",
+  "main": "./src/index.js",
+  "types": "./src/index.d.ts",
+  "exports": {
+    ".": "./src/index.js",
+    "./*": "./src/*"
+  },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
-    "test": "node tests/tests.js"
+    "test": "tape6 --flags FO",
+    "test:bun": "tape6-bun --flags FO",
+    "test:deno": "tape6-deno --flags FO",
+    "ts-check": "tsc --noEmit",
+    "js-check": "tsc --project tsconfig.check.json",
+    "lint": "prettier --check .",
+    "lint:fix": "prettier --write ."
   },
   "repository": {
     "type": "git",
@@ -12,19 +27,41 @@
   },
   "keywords": [
     "stream",
-    "chain"
+    "streaming",
+    "fork",
+    "fan-out",
+    "tee",
+    "backpressure",
+    "object-mode"
   ],
-  "author": "Eugene Lazutkin <eugene.lazutkin@gmail.com> (http://lazutkin.com/)",
+  "author": "Eugene Lazutkin <eugene.lazutkin@gmail.com> (https://www.lazutkin.com/)",
+  "funding": "https://github.com/sponsors/uhop",
+  "llms": "https://raw.githubusercontent.com/uhop/stream-fork/master/llms.txt",
+  "llmsFull": "https://raw.githubusercontent.com/uhop/stream-fork/master/llms-full.txt",
   "license": "BSD-3-Clause",
   "bugs": {
     "url": "https://github.com/uhop/stream-fork/issues"
   },
   "homepage": "https://github.com/uhop/stream-fork#readme",
-  "devDependencies": {
-    "heya-unit": "^0.3.0"
-  },
   "files": [
-    "/*.js",
-    "/utils"
-  ]
+    "src",
+    "LICENSE",
+    "README.md",
+    "AGENTS.md",
+    "ARCHITECTURE.md",
+    "llms.txt",
+    "llms-full.txt"
+  ],
+  "tape6": {
+    "tests": [
+      "/tests/test-*.*js"
+    ]
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^25.7.0",
+    "prettier": "^3.8.3",
+    "tape-six": "^1.9.0",
+    "typescript": "^6.0.3"
+  }
 }

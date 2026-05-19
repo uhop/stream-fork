@@ -1,6 +1,8 @@
+// @ts-self-types="./index.d.ts"
+
 'use strict';
 
-const {Writable} = require('stream');
+const {Writable} = require('node:stream');
 
 const waitForWrite = (chunk, encoding) => (output, index, array) =>
   output
@@ -16,7 +18,7 @@ const waitForWrite = (chunk, encoding) => (output, index, array) =>
           error = e;
         }
       })
-    : Promise.resolved(null);
+    : Promise.resolve(null);
 
 const waitForEnd = (output, index, array) =>
   output
@@ -32,7 +34,7 @@ const waitForEnd = (output, index, array) =>
           error = e;
         }
       })
-    : Promise.resolved(null);
+    : Promise.resolve(null);
 
 function reportErrors(callback) {
   return results => {
@@ -71,16 +73,20 @@ class Fork extends Writable {
 
     // connect events
     if (!options || !options.ignoreErrors) {
-      this.outputs.forEach(stream => stream.on('error', error => {
-        this.outputs = this.outputs.filter(s => s !== stream);
-        if (this.startedWriting) return;
-        this.emit('error', error);
-      }));
+      this.outputs.forEach(stream =>
+        stream.on('error', error => {
+          this.outputs = this.outputs.filter(s => s !== stream);
+          if (this.startedWriting) return;
+          this.emit('error', error);
+        })
+      );
     }
   }
   _write(chunk, encoding, callback) {
     this.startedWriting = true;
-    Promise.all(this.outputs.map(waitForWrite(chunk, encoding))).then(this.processResults(callback));
+    Promise.all(this.outputs.map(waitForWrite(chunk, encoding))).then(
+      this.processResults(callback)
+    );
   }
   _final(callback) {
     this.startedWriting = true;

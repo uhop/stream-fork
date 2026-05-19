@@ -1,0 +1,94 @@
+# stream-fork
+
+> A 1→N stream combinator — a Writable that duplicates every chunk to multiple downstream Writables, propagating backpressure from the slowest downstream. Part of the `stream-chain` / `stream-json` family. Zero runtime dependencies.
+
+The whole point is correct backpressure: `Fork._write` only signals "ready for the next chunk" once every downstream has called back, so the slowest fork gates the upstream pipe. Without that, a slow downstream's buffer would grow unboundedly.
+
+## Quick start
+
+Install:
+
+```bash
+npm i stream-fork
+```
+
+Usage:
+
+```js
+const Fork = require('stream-fork');
+const fs = require('node:fs');
+const zlib = require('node:zlib');
+
+const gzip = zlib.createGzip();
+gzip.pipe(fs.createWriteStream('log.txt.gz'));
+
+// push data to both the gzip chain and stdout
+const forkStream = new Fork([gzip, process.stdout], {});
+dataSource.pipe(forkStream);
+```
+
+## API
+
+### `new Fork(outputs[, options])`
+
+- `outputs` — array of downstream Writables.
+- `options` — Writable options. Default `{objectMode: true}`. Opt out by passing `{}` for chunk mode.
+  - `options.ignoreErrors` — boolean. When truthy, downstream errors are silently dropped and the failing stream is removed from `outputs`. When falsy (default), the first downstream error is re-emitted on the `Fork`.
+
+### `Fork.fork(outputs[, options])`
+
+Static factory. Equivalent to `new Fork(...)`. Lets you write `dataSource.pipe(fork([s1, s2]))` without `new`.
+
+### `fork.outputs`
+
+The array of downstream Writables. Mutated in place when a downstream errors out (the failing stream is filtered out).
+
+### `fork.isEmpty()`
+
+Returns `true` if `outputs.length === 0`. Useful for detecting that every downstream has errored out in default error mode.
+
+## Common patterns
+
+### Fan out to multiple sinks
+
+```js
+const Fork = require('stream-fork');
+
+source.pipe(new Fork([sinkA, sinkB, sinkC]));
+```
+
+### Continue past downstream failures
+
+```js
+const Fork = require('stream-fork');
+
+source.pipe(new Fork([primarySink, flakyMetricsSink], {ignoreErrors: true}));
+```
+
+### Fan out with per-output transforms
+
+Compose externally using `stream-chain`:
+
+```js
+const Fork = require('stream-fork');
+const chain = require('stream-chain');
+
+source.pipe(
+  new Fork([
+    chain([compress, fileSink]),
+    chain([stringify, networkSink])
+  ])
+);
+```
+
+## Notable changes in 2.x
+
+- Node 22+ required.
+- Repackaged under `src/index.js` with hand-written `.d.ts` sidecar; old `main.js` entry point removed.
+- Test runner moved from `heya-unit` to `tape-six`.
+
+## Links
+
+- Repository: https://github.com/uhop/stream-fork
+- npm: https://www.npmjs.com/package/stream-fork
+- Full LLM reference: https://raw.githubusercontent.com/uhop/stream-fork/master/llms-full.txt

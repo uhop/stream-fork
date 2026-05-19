@@ -1,0 +1,203 @@
+# stream-fork — full reference
+
+`stream-fork` is a 1→N stream combinator. It exports a single class, `Fork`, which extends Node's `Writable` and duplicates every chunk to N downstream Writables while propagating backpressure from the slowest downstream.
+
+This file is the long-form LLM-consumable reference. For the project's architectural overview see [ARCHITECTURE.md](./ARCHITECTURE.md); for AI-agent rules see [AGENTS.md](./AGENTS.md); for an end-user-facing summary see [llms.txt](./llms.txt) and the [README](./README.md).
+
+## Why this package exists
+
+Node's `Writable.write(chunk, encoding, callback)` invokes `callback` when the chunk has been consumed (either flushed downstream or accepted into a buffer with room to spare). The upstream pipe checks the return value of `write` (false = high-water-mark exceeded → pause) and listens for `'drain'` to resume.
+
+Node has no built-in primitive for backpressure-preserving fan-out:
+
+- `Readable.pipe(dest)` is 1:1.
+- Piping a single Readable into multiple destinations sets up multiple readers off the same source; the source slows to the slowest, but there is no slot for per-destination completion gating in a Writable context.
+- Calling `outputs.forEach(o => o.write(chunk))` and ignoring the callbacks discards backpressure entirely; the slow downstream's internal buffer grows unboundedly.
+
+`stream-fork` fills that gap. The Fork is itself a Writable, so it composes anywhere a Writable is expected (e.g. `source.pipe(fork)` or as a leaf in a `stream-chain` pipeline). Its `_write` runs `Promise.all` over each downstream's `write` callback, so its own callback only fires once every downstream has acknowledged consumption.
+
+## Installation
+
+```bash
+npm i stream-fork
+```
+
+Node 22+ required.
+
+## Public API
+
+### `Fork`
+
+Default export. A Writable subclass.
+
+```js
+const Fork = require('stream-fork');
+
+const fork = new Fork(outputs, options);
+```
+
+#### Constructor: `new Fork(outputs[, options])`
+
+- `outputs` (required) — array of downstream Writables. Each entry must be a Writable (or a Transform/Duplex used as a Writable). The array may be empty (`isEmpty()` will report `true`).
+- `options` (optional) — passed through to the `Writable` super-constructor. Default: `{objectMode: true}`. Opt out of object mode by passing an empty object `{}` for chunk mode (Buffer/string).
+  - `options.ignoreErrors` (optional boolean) — controls error propagation. See § Error handling below.
+
+The constructor wires error listeners on every downstream:
+
+- A no-op `'error'` listener (`stream.on('error', () => {})`) on every downstream. This prevents Node's default uncaught-error handler from crashing the process if a downstream errors before any of Fork's own logic runs.
+- When `!ignoreErrors`, an additional listener filters the failed stream out of `outputs` and re-emits the error on the Fork (only if writing hasn't started — once `_write` has been called once, `startedWriting === true` and post-start errors propagate via the per-write Promise instead).
+
+#### `Fork.fork(outputs[, options])`
+
+Static factory. Equivalent to `new Fork(outputs, options)`. Lets you write `dataSource.pipe(fork([s1, s2]))` without `new`.
+
+```js
+const {fork} = require('stream-fork');
+
+source.pipe(fork([s1, s2]));
+```
+
+#### `fork.outputs`
+
+The downstream Writables array passed to the constructor, mutated in place. When a downstream errors out, it is set to `null` for the duration of the current write round, then filtered out by `processResults`. After the filtering, `outputs` contains only the still-healthy downstreams.
+
+#### `fork.isEmpty()`
+
+Returns `true` if `outputs.length === 0`. Useful for detecting that every downstream has errored out and the Fork is effectively a sink that discards data.
+
+## Backpressure mechanics
+
+The Fork's `_write` implementation:
+
+```js
+_write(chunk, encoding, callback) {
+  this.startedWriting = true;
+  Promise.all(this.outputs.map(waitForWrite(chunk, encoding))).then(this.processResults(callback));
+}
+```
+
+Where `waitForWrite(chunk, encoding)(output)` returns a Promise that:
+
+1. Calls `output.write(chunk, encoding, cb)`.
+2. Resolves when `cb` fires (with the error, or `null`).
+
+Because `_write`'s own `callback` is only called once `Promise.all` resolves, the slowest downstream gates the upstream:
+
+- If 3 of 4 downstreams ack immediately but the 4th sits on its buffer, the Promise.all hangs on the 4th.
+- The Fork's `_write` callback hangs until the 4th acks.
+- The upstream pipe sees the deferred ack as backpressure and pauses the source.
+- When the slow downstream drains, its callback fires, Promise.all resolves, Fork's callback runs, upstream resumes.
+
+This is the correct shape: each downstream's callback is what gates the upstream.
+
+`_final(callback)` works the same way but with `output.end(cb)` instead of `output.write(chunk, encoding, cb)`. All downstreams are closed in parallel and the Fork waits for each one to acknowledge.
+
+## Error handling
+
+Two modes, controlled by `options.ignoreErrors`.
+
+### Default mode (`!ignoreErrors`)
+
+Errors can arrive through two channels:
+
+1. **Downstream emits `'error'`.** The per-stream listener removes the stream from `outputs` and — if writing hasn't started yet (`!startedWriting`) — re-emits `'error'` on the Fork. Once writing has started, post-start `'error'` events from downstreams are still seen by the listener (which filters the stream from `outputs`), but the Fork itself doesn't re-emit because the error will surface through the write-callback path.
+2. **Downstream's write-callback reports an error.** `waitForWrite`'s inner callback sees the error, nulls the slot (`array[index] = null`), and resolves the per-output Promise with the error. After `Promise.all`, `reportErrors` iterates the resolved values, calls `callback(error)` with the first error encountered (firing `'error'` on the Fork via the Writable contract), and filters nulls out of `outputs`.
+
+Either way, the failing downstream is removed and subsequent writes skip it. `'error'` fires **once** on the Fork per write round (first error wins).
+
+### Ignore mode (`ignoreErrors: true`)
+
+The per-stream re-emit listener is not installed. The no-op listener is still installed (so Node doesn't crash on unhandled errors). When a downstream's write-callback reports an error, the slot is still nulled, but `ignoreErrors` calls `callback(null)` unconditionally — the error is swallowed. The failing downstream is filtered out of `outputs` and subsequent writes skip it.
+
+`'error'` never fires on the Fork in this mode.
+
+## Examples
+
+### Fan out to multiple sinks
+
+```js
+const Fork = require('stream-fork');
+const fs = require('node:fs');
+const zlib = require('node:zlib');
+
+const gzip = zlib.createGzip();
+gzip.pipe(fs.createWriteStream('log.txt.gz'));
+
+const forkStream = new Fork([gzip, process.stdout], {});
+dataSource.pipe(forkStream);
+```
+
+### Tolerate flaky downstreams
+
+```js
+const Fork = require('stream-fork');
+
+source.pipe(
+  new Fork([primarySink, flakyMetricsSink], {ignoreErrors: true})
+);
+```
+
+When `flakyMetricsSink` errors, the failing downstream is silently filtered out. `primarySink` continues receiving data, and the source pipe is unaffected.
+
+### Per-output transforms (composition)
+
+`stream-fork` doesn't bake per-output transforms in; compose them externally:
+
+```js
+const Fork = require('stream-fork');
+const chain = require('stream-chain');
+
+source.pipe(
+  new Fork([
+    chain([compress, fileSink]),
+    chain([stringify, networkSink])
+  ])
+);
+```
+
+### Detecting "all downstreams failed"
+
+```js
+const Fork = require('stream-fork');
+
+const fork = new Fork([sinkA, sinkB], {ignoreErrors: true});
+source.pipe(fork);
+
+fork.on('finish', () => {
+  if (fork.isEmpty()) {
+    console.error('every downstream errored out');
+  }
+});
+```
+
+## Object mode vs chunk mode
+
+The default options literal is `{objectMode: true}`. To use Fork in chunk mode (Buffer/string), pass an explicit empty options object:
+
+```js
+new Fork([sinkA, sinkB]);       // object mode (default)
+new Fork([sinkA, sinkB], {});   // chunk mode (Buffer/string)
+```
+
+Or pass an explicit `objectMode` value:
+
+```js
+new Fork([sinkA, sinkB], {objectMode: false});  // chunk mode
+new Fork([sinkA, sinkB], {objectMode: true});   // object mode
+```
+
+The chosen mode is propagated to the Fork's own Writable contract via the super-constructor; the downstream streams' modes must be compatible.
+
+## Notable changes in 2.x
+
+- Node 22+ required.
+- Repackaged under `src/index.js` with hand-written `.d.ts` sidecar; the old `main.js` entry point is removed.
+- Test runner moved from `heya-unit` to `tape-six`.
+- The algorithm and public class shape are unchanged from 1.x.
+
+## Links
+
+- Repository: https://github.com/uhop/stream-fork
+- npm: https://www.npmjs.com/package/stream-fork
+- AGENTS.md: agent-facing rules
+- ARCHITECTURE.md: design overview
