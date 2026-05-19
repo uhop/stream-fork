@@ -1,7 +1,7 @@
 {
   "name": "stream-fork",
   "version": "2.0.0",
-  "description": "Fork a writable stream into several parallel writable streams with proper backpressure handling.",
+  "description": "Toolkit of 1→N stream combinators: broadcast, route, filter — with proper backpressure handling.",
   "type": "commonjs",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
@@ -31,6 +31,12 @@
     "fork",
     "fan-out",
     "tee",
+    "route",
+    "filter",
+    "dispatch",
+    "partition",
+    "load-balance",
+    "shard",
     "backpressure",
     "object-mode"
   ],

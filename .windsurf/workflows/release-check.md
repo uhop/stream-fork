@@ -8,7 +8,7 @@ Run through this checklist before publishing a new version.
 
 ## Steps
 
-1. Check that `src/index.js` and `src/index.d.ts` are in sync (the exported class and option shapes match).
+1. Check that every `src/**/*.js` has its `.d.ts` sidecar and they're in sync (exported shapes match).
 2. Check that `ARCHITECTURE.md` reflects any structural changes.
 3. Check that `AGENTS.md` is up to date with any rule or workflow changes.
 4. Check that `.windsurfrules`, `.clinerules`, `.cursorrules` are byte-identical to each other (the canonical source is `.windsurfrules`).

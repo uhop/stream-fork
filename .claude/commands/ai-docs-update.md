@@ -8,7 +8,7 @@ Update all AI-facing files after changes to the public API or project structure.
 
 ## Steps
 
-1. Read `src/index.js` and `src/index.d.ts` to identify the current public API.
+1. Read `src/**/*.js` and `src/**/*.d.ts` to identify the current public API surface (fork, route, filter, utils/\*, plus the internal stream-pusher).
 2. Read `AGENTS.md` and `ARCHITECTURE.md` for the current documented state.
 3. Identify what changed (added/renamed/removed options, behavior changes, new examples worth surfacing).
 4. Update `llms.txt`:

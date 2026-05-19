@@ -1,20 +1,24 @@
 # stream-fork — full reference
 
-`stream-fork` is a 1→N stream combinator. It exports a single class, `Fork`, which extends Node's `Writable` and duplicates every chunk to N downstream Writables while propagating backpressure from the slowest downstream.
+`stream-fork` is a toolkit of 1→N stream combinators. It exports three primitives that take an array of downstream `Writable` streams and return a single `Writable` distributing incoming chunks across them under a particular dispatch shape, plus a small set of picker helpers under `utils/` for the common `route` shapes.
 
 This file is the long-form LLM-consumable reference. For the project's architectural overview see [ARCHITECTURE.md](./ARCHITECTURE.md); for AI-agent rules see [AGENTS.md](./AGENTS.md); for an end-user-facing summary see [llms.txt](./llms.txt) and the [README](./README.md).
 
 ## Why this package exists
 
-Node's `Writable.write(chunk, encoding, callback)` invokes `callback` when the chunk has been consumed (either flushed downstream or accepted into a buffer with room to spare). The upstream pipe checks the return value of `write` (false = high-water-mark exceeded → pause) and listens for `'drain'` to resume.
-
 Node has no built-in primitive for backpressure-preserving fan-out:
 
 - `Readable.pipe(dest)` is 1:1.
-- Piping a single Readable into multiple destinations sets up multiple readers off the same source; the source slows to the slowest, but there is no slot for per-destination completion gating in a Writable context.
-- Calling `outputs.forEach(o => o.write(chunk))` and ignoring the callbacks discards backpressure entirely; the slow downstream's internal buffer grows unboundedly.
+- Calling `outputs.forEach(o => o.write(chunk))` and ignoring the callbacks discards backpressure entirely; the slowest downstream's internal buffer grows unboundedly.
+- Even with one Readable piped to multiple destinations, there's no slot for per-destination completion gating in a Writable context.
 
-`stream-fork` fills that gap. The Fork is itself a Writable, so it composes anywhere a Writable is expected (e.g. `source.pipe(fork)` or as a leaf in a `stream-chain` pipeline). Its `_write` runs `Promise.all` over each downstream's `write` callback, so its own callback only fires once every downstream has acknowledged consumption.
+`stream-fork` fills that gap. Each primitive is itself a Writable, so it composes anywhere a Writable is expected (e.g. `source.pipe(fork)` or as the terminal element of a `stream-chain` pipeline). Its `_write` runs `Promise.all` over the receiving downstreams' `write` callbacks, so its own callback only fires once every receiving downstream has acknowledged consumption.
+
+Three primitives cover the three useful 1→N control-flow shapes:
+
+- **`fork`** — every chunk to every output (broadcast).
+- **`route`** — every chunk to exactly one output (single-target dispatch).
+- **`filter`** — every chunk to a predicate-selected subset (multi-target conditional).
 
 ## Installation
 
@@ -24,73 +28,136 @@ npm i stream-fork
 
 Node 22+ required.
 
-## Public API
+## The three primitives
 
-### `Fork`
+### `fork(outputs[, options])`
 
-Default export. A Writable subclass.
+Broadcast. Every chunk is forwarded to every live downstream concurrently via `Promise.all` over the pushers' `push(chunk, encoding)` calls. The promise resolves when every downstream has acknowledged the write; only then does `fork`'s own `_write` callback fire and upstream resume.
 
-```js
-const Fork = require('stream-fork');
+- `outputs` (required) — array of downstream Writables. May be empty (`isEmpty()` will report `true` and the fork is effectively a sink).
+- `options` (optional) — passed through to the inner `Writable` super-constructor. Default: `{objectMode: true}`. Opt out by passing an empty `{}` for chunk mode.
+  - `options.ignoreErrors` (optional) — when truthy, downstream errors are silently swallowed and the failing stream is removed from the live set.
 
-const fork = new Fork(outputs, options);
-```
+Returns a Writable with:
 
-#### Constructor: `new Fork(outputs[, options])`
-
-- `outputs` (required) — array of downstream Writables. Each entry must be a Writable (or a Transform/Duplex used as a Writable). The array may be empty (`isEmpty()` will report `true`).
-- `options` (optional) — passed through to the `Writable` super-constructor. Default: `{objectMode: true}`. Opt out of object mode by passing an empty object `{}` for chunk mode (Buffer/string).
-  - `options.ignoreErrors` (optional boolean) — controls error propagation. See § Error handling below.
-
-The constructor wires error listeners on every downstream:
-
-- A no-op `'error'` listener (`stream.on('error', () => {})`) on every downstream. This prevents Node's default uncaught-error handler from crashing the process if a downstream errors before any of Fork's own logic runs.
-- When `!ignoreErrors`, an additional listener filters the failed stream out of `outputs` and re-emits the error on the Fork (only if writing hasn't started — once `_write` has been called once, `startedWriting === true` and post-start errors propagate via the per-write Promise instead).
-
-#### `Fork.fork(outputs[, options])`
-
-Static factory. Equivalent to `new Fork(outputs, options)`. Lets you write `dataSource.pipe(fork([s1, s2]))` without `new`.
+- `.outputs` — read-only snapshot of currently-live downstream Writables.
+- `.isEmpty()` — `true` when every downstream has failed.
 
 ```js
-const {fork} = require('stream-fork');
+const fork = require('stream-fork');
 
-source.pipe(fork([s1, s2]));
+const f = fork([sinkA, sinkB, sinkC]);
+source.pipe(f);
 ```
 
-#### `fork.outputs`
+### `route(outputs, options)`
 
-The downstream Writables array passed to the constructor, mutated in place. When a downstream errors out, it is set to `null` for the duration of the current write round, then filtered out by `processResults`. After the filtering, `outputs` contains only the still-healthy downstreams.
+Per-chunk single-target dispatch. For each incoming chunk, `options.pick(chunk, encoding)` returns the index of the output to forward to; the picked output's write callback gates upstream. Returning a non-index value (or pointing at a dead slot) drops the chunk silently.
 
-#### `fork.isEmpty()`
+- `outputs` (required) — non-empty array of downstream Writables.
+- `options` (required) — must include `pick`.
+  - `options.pick(chunk, encoding) => number | undefined | null` — required picker.
+  - `options.ignoreErrors` — same semantics as `fork`.
+  - Plus any Writable options.
 
-Returns `true` if `outputs.length === 0`. Useful for detecting that every downstream has errored out and the Fork is effectively a sink that discards data.
+Returns a Writable with the same `.outputs` and `.isEmpty()` surface as `fork`.
+
+```js
+const route = require('stream-fork/route.js');
+
+const r = route([evenSink, oddSink], {
+  pick: chunk => (chunk % 2 === 0 ? 0 : 1)
+});
+source.pipe(r);
+```
+
+### `filter(outputs, options)`
+
+Per-chunk subset broadcast. `options.predicates` is an array of predicates, one per output. For each incoming chunk, every output whose predicate returns truthy receives the chunk; the slowest of the selected subset gates upstream. An all-true mask is equivalent to `fork`; an all-false mask drops the chunk.
+
+- `outputs` (required) — non-empty array of downstream Writables.
+- `options` (required) — must include `predicates` of the same length as `outputs`.
+  - `options.predicates: Array<(chunk, encoding) => boolean>` — one predicate per output.
+  - `options.ignoreErrors` — same semantics as `fork`.
+
+Returns a Writable with the same `.outputs` and `.isEmpty()` surface as `fork`.
+
+```js
+const filter = require('stream-fork/filter.js');
+
+const f = filter([auditSink, errorSink, allSink], {
+  predicates: [log => log.audit, log => log.level === 'error', () => true]
+});
+source.pipe(f);
+```
+
+## Picker helpers
+
+```js
+const pickRoundRobin = require('stream-fork/utils/pick-round-robin.js');
+const pickByHash = require('stream-fork/utils/pick-by-hash.js');
+const pickByKey = require('stream-fork/utils/pick-by-key.js');
+const pickFirstMatch = require('stream-fork/utils/pick-first-match.js');
+```
+
+All four return a `pick` function suitable for `route()`'s `options.pick`.
+
+### `pickRoundRobin(count)`
+
+Stateful counter. Returns a function that cycles `0, 1, …, count-1` on each call. Pair with `route` for load-balancing across N parallel workers.
+
+```js
+const pick = pickRoundRobin(3);
+pick(); // 0
+pick(); // 1
+pick(); // 2
+pick(); // 0
+```
+
+### `pickByHash(keyFn, count)`
+
+Returns a picker that maps each chunk to a stable index via `hash(keyFn(chunk)) % count`. The same key always lands on the same output. Numeric keys are used directly modulo `count`; everything else is stringified and djb2-hashed.
+
+```js
+const pick = pickByHash(record => record.userId, 4);
+// All records with the same userId go to the same shard.
+```
+
+### `pickByKey(keyFn, table)`
+
+Returns a picker that looks up `keyFn(chunk)` in `table` (plain object or `Map`) and returns the mapped index, or `undefined` to drop the chunk if the key is missing.
+
+```js
+const pick = pickByKey(c => c.tier, {gold: 0, silver: 1, bronze: 2});
+pick({tier: 'gold'});    // 0
+pick({tier: 'unknown'}); // undefined → chunk dropped
+```
+
+### `pickFirstMatch(predicates)`
+
+Returns a picker that tries each predicate in order and returns the index of the first one to match, or `undefined` if none match. Append `() => true` to make a catch-all.
+
+```js
+const pick = pickFirstMatch([
+  log => log.level === 'error',
+  log => log.level === 'warn',
+  () => true
+]);
+```
 
 ## Backpressure mechanics
 
-The Fork's `_write` implementation:
+Node's `Writable.write(chunk, encoding, callback)` invokes `callback` when the chunk has been consumed (either flushed downstream or accepted into a buffer with room to spare). The upstream pipe checks the return value of `write` (false = high-water-mark exceeded → pause) and listens for `'drain'` to resume.
 
-```js
-_write(chunk, encoding, callback) {
-  this.startedWriting = true;
-  Promise.all(this.outputs.map(waitForWrite(chunk, encoding))).then(this.processResults(callback));
-}
-```
+Each primitive participates in this contract by NOT calling its own `_write` callback until **every receiving downstream** has consumed the chunk. The receiving set is:
 
-Where `waitForWrite(chunk, encoding)(output)` returns a Promise that:
+- **`fork`** — every live output.
+- **`route`** — the single picked output (or none, if the picker dropped).
+- **`filter`** — every output whose predicate matched (zero or more).
 
-1. Calls `output.write(chunk, encoding, cb)`.
-2. Resolves when `cb` fires (with the error, or `null`).
+Concretely: the per-pusher `push(chunk, encoding)` resolves when the inner `stream.write` callback fires. `Promise.all` over those promises gates the primitive's `_write` callback. The slowest of the receiving downstreams gates the upstream pipe.
 
-Because `_write`'s own `callback` is only called once `Promise.all` resolves, the slowest downstream gates the upstream:
-
-- If 3 of 4 downstreams ack immediately but the 4th sits on its buffer, the Promise.all hangs on the 4th.
-- The Fork's `_write` callback hangs until the 4th acks.
-- The upstream pipe sees the deferred ack as backpressure and pauses the source.
-- When the slow downstream drains, its callback fires, Promise.all resolves, Fork's callback runs, upstream resumes.
-
-This is the correct shape: each downstream's callback is what gates the upstream.
-
-`_final(callback)` works the same way but with `output.end(cb)` instead of `output.write(chunk, encoding, cb)`. All downstreams are closed in parallel and the Fork waits for each one to acknowledge.
+The same shape applies to `_final`: every primitive calls `end()` on every pusher and waits for all to acknowledge before signalling end-of-write upstream.
 
 ## Error handling
 
@@ -98,102 +165,75 @@ Two modes, controlled by `options.ignoreErrors`.
 
 ### Default mode (`!ignoreErrors`)
 
-Errors can arrive through two channels:
+Errors can arrive through three channels, all unified by the stream pusher:
 
-1. **Downstream emits `'error'`.** The per-stream listener removes the stream from `outputs` and — if writing hasn't started yet (`!startedWriting`) — re-emits `'error'` on the Fork. Once writing has started, post-start `'error'` events from downstreams are still seen by the listener (which filters the stream from `outputs`), but the Fork itself doesn't re-emit because the error will surface through the write-callback path.
-2. **Downstream's write-callback reports an error.** `waitForWrite`'s inner callback sees the error, nulls the slot (`array[index] = null`), and resolves the per-output Promise with the error. After `Promise.all`, `reportErrors` iterates the resolved values, calls `callback(error)` with the first error encountered (firing `'error'` on the Fork via the Writable contract), and filters nulls out of `outputs`.
+1. **Downstream emits `'error'`.** The pusher's own `'error'` listener captures the error and marks the pusher dead. The primitive's pre-write listener (installed in default mode only) re-emits the error on the primitive itself if writing hasn't started yet.
+2. **Downstream's `write` callback reports an error.** The per-push promise resolves with the error; `_write` finds the first error in its round and forwards it to its own callback (which surfaces as `'error'` on the primitive via the Writable contract).
+3. **`stream.write` or `stream.end` throws synchronously.** Same as (2) — the pusher catches the throw and resolves the per-push promise with the thrown error.
 
-Either way, the failing downstream is removed and subsequent writes skip it. `'error'` fires **once** on the Fork per write round (first error wins).
+Either way, the failing downstream is marked dead; subsequent writes filter live pushers and skip dead ones. `'error'` fires **once** on the primitive per write round (first error wins).
 
 ### Ignore mode (`ignoreErrors: true`)
 
-The per-stream re-emit listener is not installed. The no-op listener is still installed (so Node doesn't crash on unhandled errors). When a downstream's write-callback reports an error, the slot is still nulled, but `ignoreErrors` calls `callback(null)` unconditionally — the error is swallowed. The failing downstream is filtered out of `outputs` and subsequent writes skip it.
+The pre-write re-emission listener is not installed; the pusher's `'error'` listener still captures and marks dead. When a per-push promise resolves with an error, `_write` calls `cb(null)` unconditionally — the error is swallowed. The failing downstream is filtered out and subsequent writes skip it. `'error'` never fires on the primitive in this mode.
 
-`'error'` never fires on the Fork in this mode.
+## The internal `stream-pusher`
 
-## Examples
-
-### Fan out to multiple sinks
+`src/stream-pusher.js` is the per-stream substrate every primitive uses. It is **not exported publicly** — the contract may change between minor releases. The shape is:
 
 ```js
-const Fork = require('stream-fork');
-const fs = require('node:fs');
-const zlib = require('node:zlib');
-
-const gzip = zlib.createGzip();
-gzip.pipe(fs.createWriteStream('log.txt.gz'));
-
-const forkStream = new Fork([gzip, process.stdout], {});
-dataSource.pipe(forkStream);
-```
-
-### Tolerate flaky downstreams
-
-```js
-const Fork = require('stream-fork');
-
-source.pipe(
-  new Fork([primarySink, flakyMetricsSink], {ignoreErrors: true})
-);
-```
-
-When `flakyMetricsSink` errors, the failing downstream is silently filtered out. `primarySink` continues receiving data, and the source pipe is unaffected.
-
-### Per-output transforms (composition)
-
-`stream-fork` doesn't bake per-output transforms in; compose them externally:
-
-```js
-const Fork = require('stream-fork');
-const chain = require('stream-chain');
-
-source.pipe(
-  new Fork([
-    chain([compress, fileSink]),
-    chain([stringify, networkSink])
-  ])
-);
-```
-
-### Detecting "all downstreams failed"
-
-```js
-const Fork = require('stream-fork');
-
-const fork = new Fork([sinkA, sinkB], {ignoreErrors: true});
-source.pipe(fork);
-
-fork.on('finish', () => {
-  if (fork.isEmpty()) {
-    console.error('every downstream errored out');
-  }
+const makeStreamPusher = stream => ({
+  push: (chunk, encoding) => Promise<Error | null>,
+  end:  () => Promise<Error | null>,
+  isDead: () => boolean,
+  stream // the wrapped Writable
 });
 ```
 
-## Object mode vs chunk mode
+The pusher installs its own `'error'` listener (so Node never crashes on an otherwise-unhandled error) and tracks "dead" state — once any error has been observed via callback, sync throw, or the `'error'` event, subsequent `push`/`end` calls resolve immediately with the stored error.
 
-The default options literal is `{objectMode: true}`. To use Fork in chunk mode (Buffer/string), pass an explicit empty options object:
+This factors out per-stream concerns that would otherwise be duplicated across all three primitives. Mirror of stream-join's `makeStreamPuller` pattern.
+
+## Composition with stream-chain
+
+Every primitive returns a plain Writable, so each composes naturally as the **last** element of a `stream-chain` pipeline:
 
 ```js
-new Fork([sinkA, sinkB]);       // object mode (default)
-new Fork([sinkA, sinkB], {});   // chunk mode (Buffer/string)
+const chain = require('stream-chain');
+const fork = require('stream-fork');
+
+chain([source, transformA, transformB, fork([sinkA, sinkB])]);
+```
+
+`stream-fork` does NOT depend on `stream-chain` — both packages compose at the public stream interface, no runtime cross-dep.
+
+## Object mode vs chunk mode
+
+The default options literal is `{objectMode: true}`. To use any primitive in chunk mode (Buffer/string), pass an explicit empty options object:
+
+```js
+fork([sinkA, sinkB]);       // object mode (default)
+fork([sinkA, sinkB], {});   // chunk mode (Buffer/string)
 ```
 
 Or pass an explicit `objectMode` value:
 
 ```js
-new Fork([sinkA, sinkB], {objectMode: false});  // chunk mode
-new Fork([sinkA, sinkB], {objectMode: true});   // object mode
+fork([sinkA, sinkB], {objectMode: false});  // chunk mode
+fork([sinkA, sinkB], {objectMode: true});   // object mode
 ```
 
-The chosen mode is propagated to the Fork's own Writable contract via the super-constructor; the downstream streams' modes must be compatible.
+The chosen mode is propagated to the primitive's own Writable contract via the super-constructor; the downstream streams' modes must be compatible.
 
 ## Notable changes in 2.x
 
-- Node 22+ required.
-- Repackaged under `src/index.js` with hand-written `.d.ts` sidecar; the old `main.js` entry point is removed.
-- Test runner moved from `heya-unit` to `tape-six`.
-- The algorithm and public class shape are unchanged from 1.x.
+- **Breaking:** functional API. `new Fork(outputs, options)` from 1.x becomes `fork(outputs, options)` — no `new`, no class. The static `Fork.fork(...)` factory is gone (the function IS the factory).
+- **New primitives:** `route` (per-chunk dispatch) and `filter` (subset broadcast) added alongside `fork`.
+- **New picker helpers** under `utils/`: `pickRoundRobin`, `pickByHash`, `pickByKey`, `pickFirstMatch`.
+- **Node 22+** required.
+- **Repackaged** under `src/` with hand-written `.d.ts` sidecars and subpath exports.
+- **Test runner** moved from `heya-unit` to `tape-six`.
+- **Internal `stream-pusher`** factors per-stream concerns out of each primitive.
 
 ## Links
 
