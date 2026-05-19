@@ -41,8 +41,6 @@ The split between `src/` root and `src/utils/` is structural: **main components 
 
 **Backpressure shape:** every receiving output gates upstream.
 
-**Default joinItems:** there is no `joinItems`; every chunk is passed through verbatim.
-
 ### `route(outputs, options)`
 
 **Control flow:** single-target dispatch. For each incoming chunk, `options.pick(chunk, encoding)` returns the index of the output to forward to. Valid indices in `[0, outputs.length)` pointing at a live output trigger the write; any non-index value (`undefined`, `null`, `NaN`, negative, out-of-range, non-integer) — or pointing at a dead slot — drops the chunk silently.
