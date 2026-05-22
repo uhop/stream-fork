@@ -1,6 +1,6 @@
 {
   "name": "stream-fork",
-  "version": "3.0.0",
+  "version": "2.0.0",
   "description": "Toolkit of 1→N stream combinators: broadcast, route, filter — Node Streams and Web Streams, with proper backpressure handling.",
   "type": "module",
   "main": "./src/index.js",

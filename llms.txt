@@ -240,21 +240,18 @@ import fork from 'stream-fork';
 chain([source, transform, fork([sinkA, sinkB])]);
 ```
 
-## Notable changes in 3.x
-
-- **Breaking:** ESM-only (`"type": "module"`). Consumers must use `import` (or `await import()` from a CommonJS host).
-- **New:** Web Streams flavor at `stream-fork/web` — same three primitives, wraps `WritableStream` instead of `Writable`. Generalizes `ReadableStream.tee()` to N outputs.
-- **New:** browser test workflow via `tape-six-playwright` (`npm run test:browser`).
-- Picker helpers under `stream-fork/utils/*` are unchanged in API and are now shared between flavors (pure functions, no runtime imports).
-
 ## Notable changes in 2.x
 
-- **Breaking:** the public API became functional. `new Fork(outputs, options)` from 1.x became `fork(outputs, options)` — no `new`, no class.
+Bundled major rewrite — multi-primitive surface, ESM, and Web Streams ship together as the first 2.x on npm.
+
+- **Breaking:** the public API is now functional. `new Fork(outputs, options)` from 1.x becomes `fork(outputs, options)` — no `new`, no class.
+- **Breaking:** ESM-only (`"type": "module"`). Consumers must use `import` (or `await import()` from a CommonJS host).
 - New primitives: `route` and `filter`.
-- New picker helpers under `utils/`.
+- **New:** Web Streams flavor at `stream-fork/web` — the same three primitives, wraps `WritableStream` instead of `Writable`. Generalizes `ReadableStream.tee()` to N outputs (backpressure-preserving, no per-branch buffering).
+- New picker helpers under `utils/`. Pure functions, shared between the Node and Web trees.
 - Node 22+ required.
 - Repackaged under `src/` with hand-written `.d.ts` sidecars and subpath exports.
-- Test runner moved from `heya-unit` to `tape-six`.
+- Test runner moved from `heya-unit` to `tape-six`; tests restructured into `tests/node/` + `tests/web/`; browser test workflow via `tape-six-playwright` (`npm run test:browser`).
 
 ## Links
 

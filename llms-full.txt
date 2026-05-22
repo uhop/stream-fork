@@ -290,24 +290,20 @@ The chosen mode is propagated to the primitive's own Writable contract via the s
 
 The Web flavor has no analog — Web Streams accept any value, so there is no separate "object mode".
 
-## Notable changes in 3.x
-
-- **Breaking:** ESM-only (`"type": "module"`). Consumers must use `import` (or `await import()` from a CommonJS host).
-- **New:** Web Streams flavor at `stream-fork/web` — the same three primitives, wrapping `WritableStream`. Effectively a backpressure-preserving generalization of `ReadableStream.tee()` to N outputs.
-- **New internal `makeWebStreamPusher`** mirrors `makeStreamPusher` for the Web side.
-- **Tests restructured:** `tests/node/` + `tests/web/`. Browser test workflow via `tape-six-playwright` (`npm run test:browser`).
-- **Default-export + named mirror** applied to every public module: every `export default X` is paired with `export {X}`. Picker helpers gain named exports without changing the default-export shape.
-- Picker helpers under `stream-fork/utils/*` are unchanged in API and are now shared between flavors.
-
 ## Notable changes in 2.x
 
+Bundled major rewrite — multi-primitive surface, ESM, and Web Streams ship together as the first 2.x on npm.
+
 - **Breaking:** functional API. `new Fork(outputs, options)` from 1.x becomes `fork(outputs, options)` — no `new`, no class. The static `Fork.fork(...)` factory is gone (the function IS the factory).
+- **Breaking:** ESM-only (`"type": "module"`). Consumers must use `import` (or `await import()` from a CommonJS host).
 - **New primitives:** `route` (per-chunk dispatch) and `filter` (subset broadcast) added alongside `fork`.
-- **New picker helpers** under `utils/`: `pickRoundRobin`, `pickByHash`, `pickByKey`, `pickFirstMatch`.
+- **New Web Streams flavor** at `stream-fork/web` — the same three primitives, wrapping `WritableStream`. Effectively a backpressure-preserving generalization of `ReadableStream.tee()` to N outputs (unlike `tee`, does not buffer per branch).
+- **New picker helpers** under `utils/`: `pickRoundRobin`, `pickByHash`, `pickByKey`, `pickFirstMatch`. Pure functions, shared between the Node and Web trees.
+- **Default-export + named mirror** applied to every public module: every `export default X` is paired with `export {X}`.
 - **Node 22+** required.
 - **Repackaged** under `src/` with hand-written `.d.ts` sidecars and subpath exports.
-- **Test runner** moved from `heya-unit` to `tape-six`.
-- **Internal `stream-pusher`** factors per-stream concerns out of each primitive.
+- **Internal `stream-pusher`** (Node) and parallel `web-stream-pusher` (Web) factor per-stream concerns out of each primitive.
+- **Test runner** moved from `heya-unit` to `tape-six`; tests restructured into `tests/node/` + `tests/web/`. Browser test workflow via `tape-six-playwright` (`npm run test:browser`).
 
 ## Links
 

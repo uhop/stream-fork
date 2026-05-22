@@ -126,8 +126,7 @@ For detailed usage docs see the [wiki](https://github.com/uhop/stream-fork/wiki)
 
 ## Release History
 
-- 3.0.0 _Breaking: ESM-only (`"type": "module"`). New Web Streams flavor at `stream-fork/web`. Tests restructured into `tests/node/` + `tests/web/`; added browser tests via `tape-six-playwright`._
-- 2.0.0 _Breaking: functional API (`fork(...)`, no `new`). New primitives `route`, `filter`, plus picker helpers. Node 22+, `src/` layout, `tape-six` test runner._
+- 2.0.0 _ESM, new API: `fork(...)`, no `new`, `route`, `filter`._
 - 1.0.5 _technical release._
 - 1.0.4 _bugfix: forward errors correctly, thx [dbubovych](https://github.com/dbubovych)._
 - 1.0.3 _technical release to support Node 14._
