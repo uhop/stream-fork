@@ -1,9 +1,7 @@
-'use strict';
-
 import test from 'tape-six';
 
-import route from '../src/route.js';
-import {streamFromArray, streamToArray} from './helpers.mjs';
+import route from '../../src/route.js';
+import {streamFromArray, streamToArray} from '../helpers.js';
 
 test.asPromise('route: dispatches each chunk to one output', (t, resolve) => {
   const input = [1, 2, 3, 4, 5, 6];

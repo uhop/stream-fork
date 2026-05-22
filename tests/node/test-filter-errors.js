@@ -1,11 +1,9 @@
-'use strict';
-
 import test from 'tape-six';
 
 import {Writable} from 'node:stream';
 
-import filter from '../src/filter.js';
-import {streamFromArray, streamToArray} from './helpers.mjs';
+import filter from '../../src/filter.js';
+import {streamFromArray, streamToArray} from '../helpers.js';
 
 const erroringWritable = message =>
   new Writable({

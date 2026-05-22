@@ -1,11 +1,9 @@
-'use strict';
-
 import test from 'tape-six';
 
-import pickRoundRobin from '../src/utils/pick-round-robin.js';
-import pickByHash from '../src/utils/pick-by-hash.js';
-import pickByKey from '../src/utils/pick-by-key.js';
-import pickFirstMatch from '../src/utils/pick-first-match.js';
+import pickRoundRobin from '../../src/utils/pick-round-robin.js';
+import pickByHash from '../../src/utils/pick-by-hash.js';
+import pickByKey from '../../src/utils/pick-by-key.js';
+import pickFirstMatch from '../../src/utils/pick-first-match.js';
 
 test('pickRoundRobin: cycles 0..count-1', t => {
   const pick = pickRoundRobin(3);

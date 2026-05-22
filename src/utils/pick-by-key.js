@@ -1,7 +1,5 @@
 // @ts-self-types="./pick-by-key.d.ts"
 
-'use strict';
-
 const pickByKey = (keyFn, table) => {
   if (typeof keyFn != 'function') {
     throw TypeError('pickByKey: keyFn must be a function');
@@ -16,4 +14,5 @@ const pickByKey = (keyFn, table) => {
   };
 };
 
-module.exports = pickByKey;
+export default pickByKey;
+export {pickByKey};

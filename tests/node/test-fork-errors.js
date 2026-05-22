@@ -1,11 +1,9 @@
-'use strict';
-
 import test from 'tape-six';
 
 import {Writable} from 'node:stream';
 
-import fork from '../src/index.js';
-import {streamFromArray, streamToArray} from './helpers.mjs';
+import fork from '../../src/index.js';
+import {streamFromArray, streamToArray} from '../helpers.js';
 
 const erroringWritable = message =>
   new Writable({

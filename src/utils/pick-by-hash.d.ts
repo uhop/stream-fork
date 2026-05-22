@@ -14,4 +14,5 @@
  */
 declare function pickByHash<T>(keyFn: (chunk: T) => unknown, count: number): (chunk: T) => number;
 
-export = pickByHash;
+export default pickByHash;
+export {pickByHash};

@@ -2,6 +2,18 @@
 
 import {Writable} from 'node:stream';
 
+/**
+ * Internal helper: wrap a `Writable` so per-chunk writes / final end become
+ * awaitable Promises. The wrapper installs its own `'error'` listener so
+ * Node never crashes on an otherwise-unhandled error, and tracks "dead" state
+ * so subsequent operations resolve immediately. Used by `fork`, `route`, and
+ * `filter`.
+ *
+ * @param stream the Writable to wrap
+ * @returns a `StreamPusher` for the wrapped stream
+ */
+declare function makeStreamPusher(stream: Writable): makeStreamPusher.StreamPusher;
+
 declare namespace makeStreamPusher {
   /**
    * Promise-based wrapper around a Writable, returned by `makeStreamPusher`.
@@ -12,7 +24,7 @@ declare namespace makeStreamPusher {
    * Internal — not exported publicly. The contract may change between
    * minor releases.
    */
-  interface StreamPusher {
+  export interface StreamPusher {
     /**
      * Forward `chunk` to the wrapped Writable, resolving with the error from
      * the write callback (or any sync throw from `stream.write`), or `null`
@@ -47,16 +59,8 @@ declare namespace makeStreamPusher {
   }
 }
 
-/**
- * Internal helper: wrap a `Writable` so per-chunk writes / final end become
- * awaitable Promises. The wrapper installs its own `'error'` listener so
- * Node never crashes on an otherwise-unhandled error, and tracks "dead" state
- * so subsequent operations resolve immediately. Used by `fork`, `route`, and
- * `filter`.
- *
- * @param stream the Writable to wrap
- * @returns a `StreamPusher` for the wrapped stream
- */
-declare function makeStreamPusher(stream: Writable): makeStreamPusher.StreamPusher;
+type StreamPusher = makeStreamPusher.StreamPusher;
 
-export = makeStreamPusher;
+export default makeStreamPusher;
+export {makeStreamPusher};
+export type {StreamPusher};

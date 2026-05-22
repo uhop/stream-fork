@@ -1,9 +1,8 @@
 // @ts-self-types="./fork.d.ts"
 
-'use strict';
+import {Writable} from 'node:stream';
 
-const {Writable} = require('node:stream');
-const makeStreamPusher = require('./stream-pusher.js');
+import makeStreamPusher from './stream-pusher.js';
 
 const fork = (outputs, options) => {
   if (!Array.isArray(outputs)) {
@@ -67,4 +66,5 @@ const fork = (outputs, options) => {
   return writable;
 };
 
-module.exports = fork;
+export default fork;
+export {fork};

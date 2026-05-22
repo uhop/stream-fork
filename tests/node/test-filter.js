@@ -1,9 +1,7 @@
-'use strict';
-
 import test from 'tape-six';
 
-import filter from '../src/filter.js';
-import {streamFromArray, streamToArray} from './helpers.mjs';
+import filter from '../../src/filter.js';
+import {streamFromArray, streamToArray} from '../helpers.js';
 
 test.asPromise('filter: subset broadcast based on predicates', (t, resolve) => {
   const input = [1, 2, 3, 4, 5];

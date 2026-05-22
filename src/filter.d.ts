@@ -2,6 +2,19 @@
 
 import {Writable, WritableOptions} from 'node:stream';
 
+/**
+ * Multi-target conditional Writable. For each incoming chunk, every output
+ * whose predicate returns truthy receives the chunk; the slowest of the
+ * selected subset gates upstream. Generalizes both `fork` (all-true) and
+ * `route` (exactly-one).
+ *
+ * @param outputs non-empty array of downstream `Writable` streams
+ * @param options required; must include `predicates` of the same length as `outputs`
+ * @returns a Writable that forwards each chunk to the predicate-selected subset
+ * @throws {TypeError} if `outputs` is empty, or `predicates` length mismatches `outputs`, or any predicate is not a function
+ */
+declare function filter(outputs: Writable[], options: filter.FilterOptions): filter.FilterWritable;
+
 declare namespace filter {
   /**
    * Predicate called once per chunk per output to decide whether that output
@@ -11,14 +24,14 @@ declare namespace filter {
    * @param encoding the chunk's encoding hint (relevant only in chunk mode)
    * @returns `true` to forward the chunk to this output, `false` to skip it for this round
    */
-  type Predicate = (chunk: unknown, encoding?: BufferEncoding) => boolean;
+  export type Predicate = (chunk: unknown, encoding?: BufferEncoding) => boolean;
 
   /**
    * Options accepted by `filter()`. Extends `WritableOptions`; `predicates` is
    * required and must be the same length as `outputs`. The Writable defaults
    * to `objectMode: true` unless overridden.
    */
-  interface FilterOptions extends WritableOptions {
+  export interface FilterOptions extends WritableOptions {
     /**
      * Required: one predicate per output. For each incoming chunk, every
      * output whose predicate returns truthy receives the chunk. An all-true
@@ -39,7 +52,7 @@ declare namespace filter {
    * Writable returned by `filter()`. Adds two read-only public-API members on
    * top of the standard Writable surface.
    */
-  interface FilterWritable extends Writable {
+  export interface FilterWritable extends Writable {
     /**
      * Snapshot of the currently-live downstream Writables. Recomputed on each
      * access — dead downstreams are filtered out.
@@ -51,17 +64,10 @@ declare namespace filter {
   }
 }
 
-/**
- * Multi-target conditional Writable. For each incoming chunk, every output
- * whose predicate returns truthy receives the chunk; the slowest of the
- * selected subset gates upstream. Generalizes both `fork` (all-true) and
- * `route` (exactly-one).
- *
- * @param outputs non-empty array of downstream `Writable` streams
- * @param options required; must include `predicates` of the same length as `outputs`
- * @returns a Writable that forwards each chunk to the predicate-selected subset
- * @throws {TypeError} if `outputs` is empty, or `predicates` length mismatches `outputs`, or any predicate is not a function
- */
-declare function filter(outputs: Writable[], options: filter.FilterOptions): filter.FilterWritable;
+type Predicate = filter.Predicate;
+type FilterOptions = filter.FilterOptions;
+type FilterWritable = filter.FilterWritable;
 
-export = filter;
+export default filter;
+export {filter};
+export type {Predicate, FilterOptions, FilterWritable};

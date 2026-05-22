@@ -16,4 +16,5 @@ declare function pickByKey<T>(
   table: Record<string, number> | ReadonlyMap<unknown, number>
 ): (chunk: T) => number | undefined;
 
-export = pickByKey;
+export default pickByKey;
+export {pickByKey};

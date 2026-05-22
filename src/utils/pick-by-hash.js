@@ -1,7 +1,5 @@
 // @ts-self-types="./pick-by-hash.d.ts"
 
-'use strict';
-
 const hashString = s => {
   let h = 5381;
   for (let i = 0, n = s.length; i < n; ++i) {
@@ -26,4 +24,5 @@ const pickByHash = (keyFn, count) => {
   };
 };
 
-module.exports = pickByHash;
+export default pickByHash;
+export {pickByHash};

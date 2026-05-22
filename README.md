@@ -3,13 +3,13 @@
 [npm-img]: https://img.shields.io/npm/v/stream-fork.svg
 [npm-url]: https://npmjs.org/package/stream-fork
 
-> A toolkit of 1→N stream combinators — Writables that distribute every chunk to N downstream Writables under different dispatch shapes, with proper backpressure handling. Three primitives cover the three useful control-flow shapes:
+> A toolkit of 1→N stream combinators — sinks that distribute every chunk to N downstream sinks under different dispatch shapes, with proper backpressure handling. Three primitives cover the three useful control-flow shapes:
 
 - **`fork`** — broadcast: every chunk to every live output, slowest gates.
 - **`route`** — single-target dispatch: per-chunk picker selects one output.
 - **`filter`** — subset broadcast: per-output predicates decide who receives.
 
-Zero runtime dependencies. Part of the `stream-chain` / `stream-json` family.
+Available in two flavors that share the same options surface: **Node Streams** (the default `stream-fork` entry) and **Web Streams** (`stream-fork/web`). Zero runtime dependencies. Part of the `stream-chain` / `stream-json` family.
 
 ## Installation
 
@@ -17,35 +17,47 @@ Zero runtime dependencies. Part of the `stream-chain` / `stream-json` family.
 npm i stream-fork
 ```
 
-Node 22+ required.
+Node 22+ required (or any host with a `WritableStream` global for the Web variant — modern browsers, Deno 2+, Bun 1+).
 
-## Quick start
+## Quick start (Node Streams)
 
 ```js
-const fork = require('stream-fork');
-const fs = require('node:fs');
-const zlib = require('node:zlib');
+import fork from 'stream-fork';
+import fs from 'node:fs';
+import zlib from 'node:zlib';
 
 const gzip = zlib.createGzip();
 gzip.pipe(fs.createWriteStream('log.txt.gz'));
 
-// push data to both the gzip chain and stdout
-dataSource.pipe(fork([gzip, process.stdout], {}));
+// push every chunk to both the gzip chain and stdout
+dataSource.pipe(fork([gzip, process.stdout]));
 ```
+
+## Quick start (Web Streams)
+
+```js
+import fork from 'stream-fork/web';
+
+// dataSource is a ReadableStream, sinkA/B are WritableStreams
+await dataSource.pipeTo(fork([sinkA, sinkB]));
+```
+
+The Web `fork` is a backpressure-preserving generalization of `ReadableStream.tee()` to N outputs — unlike `tee`, it does not buffer per branch (a slow branch slows upstream rather than ballooning a queue).
 
 ## API
 
+The Node and Web primitives share the same options surface. Replace `Writable[]` with `WritableStream[]` in the signatures below for the Web flavor.
+
 ### `fork(outputs[, options])`
 
-Broadcast Writable. Every chunk goes to every live output; `Promise.all` over the per-output write callbacks gates upstream backpressure to the slowest downstream.
+Broadcast sink. Every chunk goes to every live output; `Promise.all` over the per-output writes gates upstream backpressure to the slowest downstream.
 
-- `outputs` — array of downstream Writables.
-- `options` — Writable options. Default `{objectMode: true}`.
+- `outputs` — array of downstream sinks.
+- `options` — Writable options (Node) or `{queuingStrategy}` (Web). Default `{objectMode: true}` on Node.
   - `options.ignoreErrors` — when truthy, downstream errors are silently dropped and the failing stream is removed from `outputs`.
 
 ```js
-const fork = require('stream-fork');
-
+import fork from 'stream-fork';
 source.pipe(fork([sinkA, sinkB, sinkC]));
 ```
 
@@ -53,12 +65,12 @@ source.pipe(fork([sinkA, sinkB, sinkC]));
 
 Per-chunk single-target dispatch.
 
-- `outputs` — non-empty array of downstream Writables.
-- `options.pick(chunk, encoding) => number | undefined` — required picker. Returns the index of the output to forward to, or any non-index value to drop the chunk.
-- Plus any Writable options and `ignoreErrors`.
+- `outputs` — non-empty array of downstream sinks.
+- `options.pick(chunk[, encoding]) => number | undefined` — required picker. Returns the index of the output to forward to, or any non-index value to drop the chunk.
+- Plus any inner-stream options and `ignoreErrors`.
 
 ```js
-const route = require('stream-fork/route.js');
+import route from 'stream-fork/route.js';
 
 source.pipe(
   route([evenSink, oddSink], {
@@ -71,12 +83,12 @@ source.pipe(
 
 Per-chunk subset broadcast.
 
-- `outputs` — non-empty array of downstream Writables.
+- `outputs` — non-empty array of downstream sinks.
 - `options.predicates` — array of predicates, one per output (same length).
-- Plus any Writable options and `ignoreErrors`.
+- Plus any inner-stream options and `ignoreErrors`.
 
 ```js
-const filter = require('stream-fork/filter.js');
+import filter from 'stream-fork/filter.js';
 
 source.pipe(
   filter([auditSink, errorSink, allSink], {
@@ -87,11 +99,13 @@ source.pipe(
 
 ## Picker helpers
 
+Shared between the Node and Web trees — pure functions, no runtime imports.
+
 ```js
-const pickRoundRobin = require('stream-fork/utils/pick-round-robin.js');
-const pickByHash = require('stream-fork/utils/pick-by-hash.js');
-const pickByKey = require('stream-fork/utils/pick-by-key.js');
-const pickFirstMatch = require('stream-fork/utils/pick-first-match.js');
+import pickRoundRobin from 'stream-fork/utils/pick-round-robin.js';
+import pickByHash from 'stream-fork/utils/pick-by-hash.js';
+import pickByKey from 'stream-fork/utils/pick-by-key.js';
+import pickFirstMatch from 'stream-fork/utils/pick-first-match.js';
 ```
 
 - **`pickRoundRobin(count)`** — cycles `0..count-1`. Load-balance across N workers.
@@ -99,19 +113,20 @@ const pickFirstMatch = require('stream-fork/utils/pick-first-match.js');
 - **`pickByKey(keyFn, table)`** — explicit `key → index` map (object or `Map`).
 - **`pickFirstMatch(predicates)`** — first matching predicate's index; append `() => true` for catch-all.
 
-Example: round-robin load balance.
+Example: round-robin load balance (Web variant).
 
 ```js
-const route = require('stream-fork/route.js');
-const pickRoundRobin = require('stream-fork/utils/pick-round-robin.js');
+import route from 'stream-fork/web/route.js';
+import pickRoundRobin from 'stream-fork/utils/pick-round-robin.js';
 
-source.pipe(route([worker1, worker2, worker3], {pick: pickRoundRobin(3)}));
+await source.pipeTo(route([worker1, worker2, worker3], {pick: pickRoundRobin(3)}));
 ```
 
 For detailed usage docs see the [wiki](https://github.com/uhop/stream-fork/wiki).
 
 ## Release History
 
+- 3.0.0 _Breaking: ESM-only (`"type": "module"`). New Web Streams flavor at `stream-fork/web`. Tests restructured into `tests/node/` + `tests/web/`; added browser tests via `tape-six-playwright`._
 - 2.0.0 _Breaking: functional API (`fork(...)`, no `new`). New primitives `route`, `filter`, plus picker helpers. Node 22+, `src/` layout, `tape-six` test runner._
 - 1.0.5 _technical release._
 - 1.0.4 _bugfix: forward errors correctly, thx [dbubovych](https://github.com/dbubovych)._

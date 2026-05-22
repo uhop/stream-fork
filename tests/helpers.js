@@ -1,4 +1,6 @@
-'use strict';
+// Node-only test helpers. Importing this file pulls `node:stream`; do not
+// reuse from Web tests under `tests/web/` — they have their own
+// `tests/web-helpers.js`.
 
 import {Readable, Writable} from 'node:stream';
 

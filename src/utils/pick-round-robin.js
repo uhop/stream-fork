@@ -1,7 +1,5 @@
 // @ts-self-types="./pick-round-robin.d.ts"
 
-'use strict';
-
 const pickRoundRobin = count => {
   if (typeof count != 'number' || count < 1 || !Number.isInteger(count)) {
     throw TypeError('pickRoundRobin: count must be a positive integer');
@@ -14,4 +12,5 @@ const pickRoundRobin = count => {
   };
 };
 
-module.exports = pickRoundRobin;
+export default pickRoundRobin;
+export {pickRoundRobin};

@@ -1,9 +1,8 @@
 // @ts-self-types="./filter.d.ts"
 
-'use strict';
+import {Writable} from 'node:stream';
 
-const {Writable} = require('node:stream');
-const makeStreamPusher = require('./stream-pusher.js');
+import makeStreamPusher from './stream-pusher.js';
 
 const filter = (outputs, options) => {
   if (!Array.isArray(outputs) || !outputs.length) {
@@ -83,4 +82,5 @@ const filter = (outputs, options) => {
   return writable;
 };
 
-module.exports = filter;
+export default filter;
+export {filter};

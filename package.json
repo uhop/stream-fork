@@ -1,12 +1,13 @@
 {
   "name": "stream-fork",
-  "version": "2.0.0",
-  "description": "Toolkit of 1→N stream combinators: broadcast, route, filter — with proper backpressure handling.",
-  "type": "commonjs",
+  "version": "3.0.0",
+  "description": "Toolkit of 1→N stream combinators: broadcast, route, filter — Node Streams and Web Streams, with proper backpressure handling.",
+  "type": "module",
   "main": "./src/index.js",
   "types": "./src/index.d.ts",
   "exports": {
     ".": "./src/index.js",
+    "./web": "./src/web/index.js",
     "./*": "./src/*"
   },
   "engines": {
@@ -16,6 +17,7 @@
     "test": "tape6 --flags FO",
     "test:bun": "tape6-bun --flags FO",
     "test:deno": "tape6-deno --flags FO",
+    "test:browser": "tape6-playwright --server-url http://localhost:55555 --start-server --flags FO",
     "ts-check": "tsc --noEmit",
     "js-check": "tsc --project tsconfig.check.json",
     "lint": "prettier --check .",
@@ -38,7 +40,8 @@
     "load-balance",
     "shard",
     "backpressure",
-    "object-mode"
+    "object-mode",
+    "web-streams"
   ],
   "author": "Eugene Lazutkin <eugene.lazutkin@gmail.com> (https://www.lazutkin.com/)",
   "funding": "https://github.com/sponsors/uhop",
@@ -60,14 +63,24 @@
   ],
   "tape6": {
     "tests": [
-      "/tests/test-*.*js"
-    ]
+      "/tests/web/test-*.js"
+    ],
+    "cli": [
+      "/tests/node/test-*.js"
+    ],
+    "importmap": {
+      "imports": {
+        "tape-six": "/node_modules/tape-six/index.js",
+        "tape-six/": "/node_modules/tape-six/src/"
+      }
+    }
   },
   "dependencies": {},
   "devDependencies": {
     "@types/node": "^25.7.0",
     "prettier": "^3.8.3",
     "tape-six": "^1.9.0",
+    "tape-six-playwright": "^1.0.3",
     "typescript": "^6.0.3"
   }
 }

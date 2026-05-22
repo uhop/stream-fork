@@ -12,4 +12,5 @@
  */
 declare function pickRoundRobin(count: number): () => number;
 
-export = pickRoundRobin;
+export default pickRoundRobin;
+export {pickRoundRobin};

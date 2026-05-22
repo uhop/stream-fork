@@ -1,7 +1,5 @@
 // @ts-self-types="./pick-first-match.d.ts"
 
-'use strict';
-
 const pickFirstMatch = predicates => {
   if (!Array.isArray(predicates) || !predicates.length) {
     throw TypeError('pickFirstMatch: predicates must be a non-empty array of functions');
@@ -17,4 +15,5 @@ const pickFirstMatch = predicates => {
   };
 };
 
-module.exports = pickFirstMatch;
+export default pickFirstMatch;
+export {pickFirstMatch};

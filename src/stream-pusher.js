@@ -1,7 +1,5 @@
 // @ts-self-types="./stream-pusher.d.ts"
 
-'use strict';
-
 const makeStreamPusher = stream => {
   let dead = false;
   let storedError = null;
@@ -56,4 +54,5 @@ const makeStreamPusher = stream => {
   return {push, end, isDead, stream};
 };
 
-module.exports = makeStreamPusher;
+export default makeStreamPusher;
+export {makeStreamPusher};

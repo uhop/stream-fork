@@ -1,9 +1,7 @@
-'use strict';
-
 import test from 'tape-six';
 
-import fork from '../src/index.js';
-import {streamFromArray, streamToArray} from './helpers.mjs';
+import fork from '../../src/index.js';
+import {streamFromArray, streamToArray} from '../helpers.js';
 
 test.asPromise('fork: 3 outputs, object mode', (t, resolve) => {
   const input = [1, 3, 5, 7];

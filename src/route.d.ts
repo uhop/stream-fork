@@ -2,6 +2,20 @@
 
 import {Writable, WritableOptions} from 'node:stream';
 
+/**
+ * Per-chunk dispatch Writable. Each incoming chunk is passed to
+ * `options.pick(chunk, encoding)`; if the returned index points at a live
+ * output, the chunk is forwarded there and that output's write-callback gates
+ * upstream. If the picker returns a non-index value or points at a dead slot,
+ * the chunk is silently dropped (upstream is unblocked immediately).
+ *
+ * @param outputs non-empty array of downstream `Writable` streams
+ * @param options required; must include `pick` (see {@link route.RouteOptions})
+ * @returns a Writable that forwards each chunk to one (or zero) downstreams
+ * @throws {TypeError} if `outputs` is empty, or `options.pick` is missing or non-callable
+ */
+declare function route(outputs: Writable[], options: route.RouteOptions): route.RouteWritable;
+
 declare namespace route {
   /**
    * Picker function called once per incoming chunk. Returns the index of the
@@ -12,13 +26,13 @@ declare namespace route {
    * @param encoding the chunk's encoding hint (relevant only in chunk mode)
    * @returns the target output's index in `outputs`, or a non-index value to drop the chunk
    */
-  type Picker = (chunk: unknown, encoding?: BufferEncoding) => number | undefined | null;
+  export type Picker = (chunk: unknown, encoding?: BufferEncoding) => number | undefined | null;
 
   /**
    * Options accepted by `route()`. Extends `WritableOptions`; `pick` is
    * required. The Writable defaults to `objectMode: true` unless overridden.
    */
-  interface RouteOptions extends WritableOptions {
+  export interface RouteOptions extends WritableOptions {
     /** Required per-chunk picker. See {@link Picker}. */
     pick: Picker;
 
@@ -35,7 +49,7 @@ declare namespace route {
    * Writable returned by `route()`. Adds two read-only public-API members on
    * top of the standard Writable surface.
    */
-  interface RouteWritable extends Writable {
+  export interface RouteWritable extends Writable {
     /**
      * Snapshot of the currently-live downstream Writables. Recomputed on each
      * access — dead downstreams are filtered out.
@@ -47,18 +61,10 @@ declare namespace route {
   }
 }
 
-/**
- * Per-chunk dispatch Writable. Each incoming chunk is passed to
- * `options.pick(chunk, encoding)`; if the returned index points at a live
- * output, the chunk is forwarded there and that output's write-callback gates
- * upstream. If the picker returns a non-index value or points at a dead slot,
- * the chunk is silently dropped (upstream is unblocked immediately).
- *
- * @param outputs non-empty array of downstream `Writable` streams
- * @param options required; must include `pick` (see {@link route.RouteOptions})
- * @returns a Writable that forwards each chunk to one (or zero) downstreams
- * @throws {TypeError} if `outputs` is empty, or `options.pick` is missing or non-callable
- */
-declare function route(outputs: Writable[], options: route.RouteOptions): route.RouteWritable;
+type Picker = route.Picker;
+type RouteOptions = route.RouteOptions;
+type RouteWritable = route.RouteWritable;
 
-export = route;
+export default route;
+export {route};
+export type {Picker, RouteOptions, RouteWritable};

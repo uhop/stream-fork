@@ -1,9 +1,8 @@
 // @ts-self-types="./route.d.ts"
 
-'use strict';
+import {Writable} from 'node:stream';
 
-const {Writable} = require('node:stream');
-const makeStreamPusher = require('./stream-pusher.js');
+import makeStreamPusher from './stream-pusher.js';
 
 const route = (outputs, options) => {
   if (!Array.isArray(outputs) || !outputs.length) {
@@ -67,4 +66,5 @@ const route = (outputs, options) => {
   return writable;
 };
 
-module.exports = route;
+export default route;
+export {route};

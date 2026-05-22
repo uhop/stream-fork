@@ -2,12 +2,25 @@
 
 import {Writable, WritableOptions} from 'node:stream';
 
+/**
+ * Broadcast Writable. Every chunk is forwarded to every live downstream;
+ * `Promise.all` over the per-output write-callbacks gates upstream
+ * backpressure to the slowest downstream. Failed downstreams are dropped from
+ * the live set; in default mode the first error per round is surfaced on the
+ * Fork's `'error'` event.
+ *
+ * @param outputs array of downstream `Writable` streams; may be empty
+ * @param options Writable options plus `ignoreErrors`; default `{objectMode: true}`
+ * @returns a Writable that broadcasts every chunk to every live downstream
+ */
+declare function fork(outputs: Writable[], options?: fork.ForkOptions): fork.ForkWritable;
+
 declare namespace fork {
   /**
    * Options accepted by `fork()`. Extends `WritableOptions`; the Writable
    * defaults to `objectMode: true` unless overridden.
    */
-  interface ForkOptions extends WritableOptions {
+  export interface ForkOptions extends WritableOptions {
     /**
      * When truthy, downstream errors are silently swallowed and the failing
      * stream is dropped from the live outputs view. When falsy (default), the
@@ -21,7 +34,7 @@ declare namespace fork {
    * Writable returned by `fork()`. Adds two read-only public-API members on
    * top of the standard Writable surface.
    */
-  interface ForkWritable extends Writable {
+  export interface ForkWritable extends Writable {
     /**
      * Snapshot of the currently-live downstream Writables. Recomputed on each
      * access — dead downstreams (errored, marked by the internal pusher) are
@@ -37,17 +50,9 @@ declare namespace fork {
   }
 }
 
-/**
- * Broadcast Writable. Every chunk is forwarded to every live downstream;
- * `Promise.all` over the per-output write-callbacks gates upstream
- * backpressure to the slowest downstream. Failed downstreams are dropped from
- * the live set; in default mode the first error per round is surfaced on the
- * Fork's `'error'` event.
- *
- * @param outputs array of downstream `Writable` streams; may be empty
- * @param options Writable options plus `ignoreErrors`; default `{objectMode: true}`
- * @returns a Writable that broadcasts every chunk to every live downstream
- */
-declare function fork(outputs: Writable[], options?: fork.ForkOptions): fork.ForkWritable;
+type ForkOptions = fork.ForkOptions;
+type ForkWritable = fork.ForkWritable;
 
-export = fork;
+export default fork;
+export {fork};
+export type {ForkOptions, ForkWritable};
