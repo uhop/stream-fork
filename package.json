@@ -77,7 +77,7 @@
   },
   "dependencies": {},
   "devDependencies": {
-    "@types/node": "^25.7.0",
+    "@types/node": "^25.9.1",
     "prettier": "^3.8.3",
     "tape-six": "^1.9.0",
     "tape-six-playwright": "^1.0.3",

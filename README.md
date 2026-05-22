@@ -133,3 +133,5 @@ For detailed usage docs see the [wiki](https://github.com/uhop/stream-fork/wiki)
 - 1.0.2 _workaround for Node 6: use `'finish'` event instead of `_final()`._
 - 1.0.1 _improved documentation._
 - 1.0.0 _the initial release._
+
+The full release notes are in the wiki: [Release notes](https://github.com/uhop/stream-fork/wiki/Release-notes).
