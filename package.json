@@ -20,6 +20,9 @@
     "test:browser": "tape6-playwright --server-url http://localhost:55555 --start-server --flags FO",
     "ts-check": "tsc --noEmit",
     "js-check": "tsc --project tsconfig.check.json",
+    "ts-test": "tape6 --flags FO 'tests/**/test-*.*ts'",
+    "ts-test:bun": "tape6-bun --flags FO 'tests/**/test-*.*ts'",
+    "ts-test:deno": "tape6-deno --flags FO 'tests/**/test-*.*ts'",
     "lint": "prettier --check .",
     "lint:fix": "prettier --write ."
   },
@@ -63,10 +66,10 @@
   ],
   "tape6": {
     "tests": [
-      "/tests/web/test-*.js"
+      "/tests/web/test-*.*js"
     ],
     "cli": [
-      "/tests/node/test-*.js"
+      "/tests/node/test-*.*js"
     ],
     "importmap": {
       "imports": {
