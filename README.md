@@ -122,7 +122,7 @@ import pickRoundRobin from 'stream-fork/utils/pick-round-robin.js';
 await source.pipeTo(route([worker1, worker2, worker3], {pick: pickRoundRobin(3)}));
 ```
 
-For detailed usage docs see the [wiki](https://github.com/uhop/stream-fork/wiki).
+Full documentation is in the **[wiki](https://github.com/uhop/stream-fork/wiki)** — browse the [index](https://github.com/uhop/stream-fork/wiki/Home), or [search it](https://uhop.github.io/wiki-search/app/?wiki=uhop/stream-fork) by name.
 
 ## Release History
 

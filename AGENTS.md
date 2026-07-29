@@ -75,6 +75,7 @@ The Node primitives at `src/<comp>.js` and the Web primitives at `src/web/<comp>
 - 2-space indentation.
 - Semicolons are enforced by Prettier (default `semi: true`).
 - **Default-export + named mirror.** Every module that declares `export default X` also declares `export {X}` for the same value (fleet convention `esm-default-export-with-named-mirror`).
+- **Comments are _why_-markers only** — a non-trivial decision or constraint, an algorithm reference, or explicitly requested JSDoc; never narrate _what_ the code does (fleet convention `no-narrating-comments`).
 
 ## Critical rules
 
@@ -84,7 +85,6 @@ The Node primitives at `src/<comp>.js` and the Web primitives at `src/web/<comp>
 - **Object mode default (Node).** Every Node primitive forces `objectMode: true` unless the caller passes an explicit `objectMode: false` (or an empty `{}` for chunk mode via the default-arg shape). Web Streams don't have a separate "object mode" — they accept any value, so this knob doesn't apply on the Web side.
 - **Dead-output handling.** When a downstream errors, it's removed from the live `outputs` view. The public `outputs` getter returns only the live ones. Subsequent writes skip dead downstreams.
 - **Do not modify or delete test expectations** without understanding why they changed.
-- **Do not add comments or remove comments** unless explicitly asked.
 - **Keep `.js` and `.d.ts` files in sync** for every source file. All public API has a hand-written `.d.ts` sidecar with the `// @ts-self-types="./X.d.ts"` directive at the top of the `.js`.
 - **Helpers live under `src/utils/`.** Main components and shared infrastructure stay at `src/` root (Node) or `src/web/` root (Web). Pure helpers (like the picker factories) live under `src/utils/` and are imported by both trees.
 
